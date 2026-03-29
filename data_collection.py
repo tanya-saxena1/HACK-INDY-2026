@@ -1,30 +1,13 @@
-import os, time, requests
+import time, requests
 import googlemaps
 import pandas as pd
 
-GMAPS_KEY = ""
-
-gmaps = googlemaps.Client(GMAPS_KEY)
-
-RADIUS = 1600
-
-POI_TYPES = {
-    "restaurant":      "restaurant",
-    "cafe":            "cafe",
-    "gym":             "gym",
-    "grocery":         "grocery_or_supermarket",
-    "bar":             "bar",
-    "transit_station": "transit_station",
-    "park":            "park",
-    "pharmacy":        "pharmacy",
-    "hospital":        "hospital",
-    "convenience":     "convenience_store",
-    "stadium":         "stadium",
-    "library":         "library",
-    "movie_theater":   "movie_theater",
-    "shopping_mall":   "shopping_mall",
-}
-
+from model import POI_TYPES
+ 
+GMAPS_KEY = "AIzaSyANlC4pnuKyEiyRpI5oeXu1GnbmqX7R4d0"
+gmaps     = googlemaps.Client(GMAPS_KEY)
+RADIUS    = 1600
+ 
 CAMPUSES = [
     ("University of Michigan",                "University of Michigan Ann Arbor"),
     ("Ohio State University",                 "Ohio State University Columbus"),
@@ -32,9 +15,7 @@ CAMPUSES = [
     ("MIT",                                   "MIT Cambridge MA"),
     ("University of Texas at Austin",         "UT Austin Texas"),
     ("Penn State University",                 "Penn State University Park PA"),
-    ("University of Florida",                 "University of Florida Gainesville"),
-    ("NYU",                                   "New York University Manhattan"),
-    ("Arizona State University",              "ASU Tempe Arizona"),
+    ("University of Florida",             "ASU Tempe Arizona"),
     ("University of Wisconsin-Madison",       "UW Madison Wisconsin"),
     ("UC Berkeley",                           "UC Berkeley California"),
     ("University of Washington",              "University of Washington Seattle"),
@@ -43,7 +24,9 @@ CAMPUSES = [
     ("University of Illinois Urbana-Champaign", "UIUC Champaign Illinois"),
     ("Michigan State University",             "Michigan State East Lansing"),
     ("University of Minnesota",               "University of Minnesota Minneapolis"),
-    ("University of Colorado Boulder",        "CU Boulder Colorado"),
+    ("University of Colorado Boulder",        "University of Florida Gainesville"),
+    ("NYU",                                   "New York University Manhattan"),
+    ("Arizona State University",                  "CU Boulder Colorado"),
     ("University of Oregon",                  "University of Oregon Eugene"),
     ("University of Arizona",                 "University of Arizona Tucson"),
     ("Georgia Tech",                          "Georgia Tech Atlanta"),
@@ -129,16 +112,16 @@ CAMPUSES = [
     ("Marquette University",                  "Marquette University Milwaukee"),
     ("University of Wisconsin-Milwaukee",     "UWM Milwaukee Wisconsin"),
 ]
-
-
+ 
+ 
 def geocode_campus(query: str):
     results = gmaps.geocode(query)
     if not results:
         return None, None
     loc = results[0]["geometry"]["location"]
     return loc["lat"], loc["lng"]
-
-
+ 
+ 
 def fetch_pois(lat: float, lng: float) -> dict:
     counts = {}
     for label, ptype in POI_TYPES.items():
@@ -150,8 +133,8 @@ def fetch_pois(lat: float, lng: float) -> dict:
             print(f"    POI error ({label}): {e}")
             counts[label] = 0
     return counts
-
-
+ 
+ 
 def fetch_weather(lat: float, lng: float) -> dict:
     url = (
         "https://api.open-meteo.com/v1/forecast"
@@ -173,8 +156,8 @@ def fetch_weather(lat: float, lng: float) -> dict:
     except Exception as e:
         print(f"    Weather error: {e}")
         return {"avg_temp_c": None, "avg_precip_mm": None, "avg_sun_hrs": None}
-
-
+ 
+ 
 def build_dataset(out_path="campus_features.csv"):
     rows = []
     for name, query in CAMPUSES:
@@ -185,16 +168,17 @@ def build_dataset(out_path="campus_features.csv"):
             continue
         pois    = fetch_pois(lat, lng)
         weather = fetch_weather(lat, lng)
-        row = {"name": name, "lat": lat, "lng": lng, **pois, **weather}
+        row     = {"name": name, "lat": lat, "lng": lng, **pois, **weather}
         rows.append(row)
         print(f"  ✓ lat={lat:.4f} lng={lng:.4f}  pois={sum(pois.values())}")
         time.sleep(0.3)
-
+ 
     df = pd.DataFrame(rows)
     df.to_csv(out_path, index=False)
     print(f"\nSaved {len(df)} campuses → {out_path}")
     return df
-
-
+ 
+ 
 if __name__ == "__main__":
     build_dataset()
+ 
