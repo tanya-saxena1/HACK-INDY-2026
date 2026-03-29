@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CampusScore</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --cream:   #F4EFE6;
+  --paper:   #FDFAF5;
+  --ink:     #1C1712;
+  --ink2:    #4A4035;
+  --ink3:    #8C7E6E;
+  --rule:    #DDD5C8;
+  --forest:  #2B5F3F;
+  --sage:    #4E8C69;
+  --sage-lt: #E6F0EB;
+  --terra:   #C05A2A;
+  --terra-lt:#F5EAE3;
+  --gold:    #C49A2A;
+  --gold-lt: #F5F0DC;
+  --fh: 'Playfair Display', Georgia, serif;
+  --fb: 'Inter', sans-serif;
+  --fm: 'JetBrains Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--cream); color: var(--ink); font-family: var(--fb); min-height: 100vh; }
+
+/* ─── views ─── */
+.view { display: none; }
+.view.active { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ─── nav ─── */
+.nav {
+  background: var(--paper);
+  border-bottom: 1.5px solid var(--ink);
+  padding: 0 2.5rem;
+  height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 20;
+}
+.logo { font-family: var(--fh); font-size: 1.2rem; font-weight: 900; letter-spacing: -0.02em; }
+.logo em { font-style: italic; color: var(--forest); }
+.nav-tag { font-family: var(--fm); font-size: 0.68rem; color: var(--ink3); letter-spacing: 0.04em; }
+
+/* ═══════════════════════════════════════
+   SEARCH VIEW
+═══════════════════════════════════════ */
+.search-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: calc(100vh - 56px);
+}
+
+.search-left {
+  background: var(--ink);
+  color: var(--cream);
+  padding: 4rem 3.5rem;
+  display: flex; flex-direction: column; justify-content: center; gap: 2rem;
+  position: relative; overflow: hidden;
+}
+.search-left::after {
+  content: '';
+  position: absolute; bottom: -60px; right: -60px;
+  width: 280px; height: 280px;
+  border-radius: 50%;
+  border: 40px solid rgba(255,255,255,0.04);
+  pointer-events: none;
+}
+
+.eyebrow { font-family: var(--fm); font-size: 0.72rem; color: var(--sage); letter-spacing: 0.15em; text-transform: uppercase; }
+.search-title { font-family: var(--fh); font-size: clamp(2.4rem, 4.5vw, 3.6rem); font-weight: 900; line-height: 1.05; letter-spacing: -0.03em; color: var(--paper); }
+.search-title em { font-style: italic; color: var(--sage); }
+.search-body-text { font-size: 0.95rem; font-weight: 300; color: #A09080; line-height: 1.7; max-width: 360px; }
+
+.stat-row { display: flex; gap: 2rem; margin-top: 0.5rem; }
+.stat-item { }
+.stat-num { font-family: var(--fm); font-size: 1.5rem; font-weight: 500; color: var(--paper); }
+.stat-lbl { font-size: 0.72rem; color: #A09080; margin-top: 2px; }
+
+.search-right {
+  background: var(--paper);
+  padding: 4rem 3.5rem;
+  display: flex; flex-direction: column; justify-content: center; gap: 2rem;
+}
+.form-label { font-family: var(--fm); font-size: 0.72rem; color: var(--ink3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.6rem; display: block; }
+
+.search-wrap { position: relative; }
+.search-field {
+  width: 100%; padding: 1rem 1.2rem;
+  border: 1.5px solid var(--rule);
+  border-radius: 0; font-family: var(--fb); font-size: 1rem; color: var(--ink);
+  background: var(--paper); outline: none;
+  transition: border-color 0.15s;
+}
+.search-field:focus { border-color: var(--ink); }
+.search-field::placeholder { color: var(--ink3); }
+.search-go {
+  margin-top: 0.7rem; width: 100%;
+  padding: 0.9rem; border: none; background: var(--ink); color: var(--paper);
+  font-family: var(--fh); font-size: 1rem; font-weight: 700; font-style: italic;
+  cursor: pointer; transition: background 0.15s; letter-spacing: 0.01em;
+}
+.search-go:hover { background: var(--forest); }
+
+.ac-drop {
+  position: absolute; top: calc(100% + 2px); left: 0; right: 0;
+  background: var(--paper); border: 1.5px solid var(--ink);
+  z-index: 50; display: none; max-height: 280px; overflow-y: auto;
+}
+.ac-drop.open { display: block; }
+.ac-row {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.65rem 1rem; cursor: pointer;
+  border-bottom: 1px solid var(--rule);
+  transition: background 0.1s;
+}
+.ac-row:last-child { border-bottom: none; }
+.ac-row:hover, .ac-row.sel { background: var(--cream); }
+.ac-score { font-family: var(--fm); font-size: 0.75rem; color: var(--sage); min-width: 36px; font-weight: 500; }
+.ac-nm { font-size: 0.9rem; font-weight: 500; flex: 1; }
+.ac-city { font-size: 0.78rem; color: var(--ink3); }
+
+.pill-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.pill {
+  padding: 0.35rem 0.85rem; border: 1px solid var(--rule);
+  font-size: 0.8rem; color: var(--ink2); cursor: pointer;
+  transition: all 0.15s; background: var(--cream);
+}
+.pill:hover { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+
+.footer-strip {
+  background: var(--paper); border-top: 1px solid var(--rule);
+  padding: 0.9rem 2.5rem; display: flex; gap: 2.5rem; flex-wrap: wrap;
+  font-family: var(--fm); font-size: 0.7rem; color: var(--ink3); letter-spacing: 0.06em;
+}
+.ds-tag { text-transform: uppercase; }
+.ds-tag::before { content: '— '; }
+
+/* ═══════════════════════════════════════
+   LOADING VIEW
+═══════════════════════════════════════ */
+#v-loading .load-inner {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 1.5rem;
+  background: var(--cream);
+}
+.load-hed { font-family: var(--fh); font-size: 1.8rem; font-weight: 700; font-style: italic; }
+.load-name { color: var(--forest); }
+.load-list { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; min-width: 320px; }
+.load-item { display: flex; align-items: center; gap: 0.8rem; font-size: 0.86rem; color: var(--ink3); transition: color 0.25s; }
+.load-item.go { color: var(--ink); }
+.load-item.done { color: var(--forest); }
+.load-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--rule); flex-shrink: 0; transition: all 0.25s; }
+.load-item.go   .load-dot { border-color: var(--forest); background: transparent; animation: pulse 0.7s ease-in-out infinite; }
+.load-item.done .load-dot { border-color: var(--forest); background: var(--forest); }
+@keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+/* ═══════════════════════════════════════
+   RESULTS VIEW
+═══════════════════════════════════════ */
+.res-topbar {
+  background: var(--paper); border-bottom: 1.5px solid var(--ink);
+  padding: 0 2.5rem; height: 56px;
+  display: flex; align-items: center; gap: 1.5rem;
+  position: sticky; top: 0; z-index: 20;
+}
+.back { background: none; border: 1px solid var(--rule); color: var(--ink2); padding: 0.35rem 0.85rem; font-family: var(--fb); font-size: 0.82rem; cursor: pointer; transition: all 0.15s; }
+.back:hover { border-color: var(--ink); color: var(--ink); }
+.res-name-hdr { font-family: var(--fh); font-size: 1.15rem; font-weight: 700; font-style: italic; }
+.res-meta-hdr { font-size: 0.78rem; color: var(--ink3); display: flex; gap: 1.2rem; flex-wrap: wrap; }
+.res-meta-hdr span { display: flex; align-items: center; gap: 0.3rem; }
+
+.res-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  background: var(--cream);
+}
+
+/* ── left col ── */
+.res-left {
+  border-right: 1.5px solid var(--rule);
+  background: var(--paper);
+  overflow-y: auto;
+  padding: 1.8rem 1.6rem;
+  display: flex; flex-direction: column; gap: 1.6rem;
+}
+
+.score-hero { display: flex; align-items: center; gap: 1.6rem; }
+.score-ring-wrap { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+.score-ring-wrap svg { transform: rotate(-90deg); }
+.score-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.score-big { font-family: var(--fm); font-size: 2.2rem; font-weight: 500; line-height: 1; }
+.score-sub { font-size: 0.62rem; font-family: var(--fm); color: var(--ink3); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+.score-info { flex: 1; }
+.score-tier { font-family: var(--fh); font-size: 1.2rem; font-weight: 700; font-style: italic; }
+.score-desc { font-size: 0.82rem; color: var(--ink3); line-height: 1.6; margin-top: 0.4rem; }
+
+.section-rule { border: none; border-top: 1px solid var(--rule); }
+.sec-label { font-family: var(--fm); font-size: 0.67rem; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 1rem; }
+
+.bars { display: flex; flex-direction: column; gap: 0.9rem; }
+.bar-row { }
+.bar-top { display: flex; justify-content: space-between; margin-bottom: 0.35rem; font-size: 0.83rem; }
+.bar-lbl { font-weight: 500; }
+.bar-num { font-family: var(--fm); font-size: 0.82rem; }
+.track { height: 4px; background: var(--cream); border-radius: 2px; overflow: hidden; }
+.fill  { height: 100%; border-radius: 2px; width: 0; transition: width 1.1s cubic-bezier(0.22,1,0.36,1); }
+
+.poi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.poi-cell { background: var(--cream); padding: 0.6rem 0.8rem; border-radius: 2px; }
+.poi-n { font-family: var(--fm); font-size: 1.1rem; font-weight: 500; color: var(--forest); }
+.poi-l { font-size: 0.72rem; color: var(--ink3); margin-top: 1px; }
+
+.weather-row { display: flex; gap: 0.6rem; }
+.wx-cell { flex: 1; background: var(--cream); padding: 0.7rem 0.8rem; border-radius: 2px; text-align: center; }
+.wx-val { font-family: var(--fm); font-size: 1rem; font-weight: 500; color: var(--ink); }
+.wx-lbl { font-size: 0.68rem; color: var(--ink3); margin-top: 2px; }
+
+/* ── right col ── */
+.res-right { overflow-y: auto; display: flex; flex-direction: column; }
+
+.map-wrap { flex: 0 0 300px; background: var(--rule); border-bottom: 1px solid var(--rule); }
+#leaflet-map { width: 100%; height: 100%; z-index: 1; }
+
+.res-right-body { padding: 1.8rem 2rem; display: flex; flex-direction: column; gap: 1.8rem; }
+
+/* Radar */
+.radar-wrap { padding: 1.2rem; border: 1px solid var(--rule); background: var(--paper); }
+
+/* Sliders */
+.pref-card { padding: 1.4rem; border: 1px solid var(--rule); background: var(--paper); }
+.pref-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.2rem; }
+.pref-hed { font-family: var(--fh); font-size: 1.05rem; font-weight: 700; font-style: italic; }
+.pers-score-tag { font-family: var(--fm); font-size: 0.78rem; color: var(--forest); font-weight: 500; }
+.sliders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+.sl-row { display: flex; flex-direction: column; gap: 0.35rem; }
+.sl-lbl { font-size: 0.8rem; font-weight: 500; }
+.sl-ends { display: flex; justify-content: space-between; font-size: 0.69rem; color: var(--ink3); }
+input[type="range"] {
+  width: 100%; -webkit-appearance: none; height: 3px;
+  background: var(--rule); outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--ink); cursor: pointer; transition: background 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover { background: var(--forest); }
+
+/* Compare panel */
+.compare-card { display: flex; gap: 0; border: 1px solid var(--rule); background: var(--paper); overflow: hidden; }
+.cmp-col { flex: 1; padding: 1.2rem 1.4rem; }
+.cmp-col + .cmp-col { border-left: 1px solid var(--rule); }
+.cmp-hed { font-family: var(--fm); font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink3); margin-bottom: 0.5rem; }
+.cmp-num { font-family: var(--fm); font-size: 2.2rem; font-weight: 500; }
+.cmp-num.default { color: var(--ink3); }
+.cmp-num.personal { color: var(--forest); }
+.cmp-diff { display: inline-block; font-family: var(--fm); font-size: 0.75rem; padding: 0.15rem 0.5rem; margin-top: 0.4rem; }
+.diff-up   { background: var(--sage-lt);  color: var(--forest); }
+.diff-dn   { background: var(--terra-lt); color: var(--terra); }
+.diff-eq   { background: var(--cream);    color: var(--ink3); }
+
+/* AI explain */
+.ai-card { padding: 1.4rem; border: 1px solid var(--rule); background: var(--paper); }
+.ai-hed { font-family: var(--fh); font-size: 0.9rem; font-weight: 700; font-style: italic; color: var(--ink3); margin-bottom: 0.7rem; }
+.ai-txt { font-size: 0.87rem; line-height: 1.7; color: var(--ink2); }
+.ai-txt strong { color: var(--ink); font-weight: 600; }
+
+/* Toast */
+.toast { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--cream); padding: 0.7rem 1.4rem; font-size: 0.86rem; z-index: 999; display: none; }
+.toast.on { display: block; animation: fiu 0.25s ease; }
+@keyframes fiu { from{opacity:0;transform:translateX(-50%) translateY(8px);} to{opacity:1;transform:translateX(-50%) translateY(0);} }
+
+/* Source badge */
+.src-badge { display: inline-flex; align-items: center; gap: 0.4rem; font-family: var(--fm); font-size: 0.68rem; padding: 0.2rem 0.6rem; margin-left: auto; }
+.src-badge.live { background: var(--sage-lt); color: var(--forest); }
+.src-badge.cached { background: var(--gold-lt); color: var(--gold); }
+.src-badge.local { background: var(--cream); color: var(--ink3); }
+.rank-row { display:flex; align-items:center; gap:0.8rem; padding:0.5rem 0; border-bottom:1px solid var(--rule); }
+.rank-row:last-child { border-bottom:none; }
+.rank-pos { font-family:var(--fm); font-size:0.72rem; color:var(--ink3); min-width:20px; }
+.rank-name { flex:1; font-size:0.85rem; font-weight:500; cursor:pointer; }
+.rank-name:hover { color:var(--forest); text-decoration:underline; }
+.rank-score { font-family:var(--fm); font-size:0.85rem; color:var(--forest); font-weight:500; }
+.rank-bar { height:3px; background:var(--rule); border-radius:2px; overflow:hidden; margin-top:2px; }
+.rank-fill { height:100%; background:var(--sage); border-radius:2px; }
+
+@media (max-width: 900px) {
+  .search-body { grid-template-columns: 1fr; }
+  .search-left { padding: 3rem 2rem; min-height: 40vh; }
+  .res-grid { grid-template-columns: 1fr; }
+  .res-left { border-right: none; border-bottom: 1.5px solid var(--rule); }
+  .sliders-grid { grid-template-columns: 1fr; }
+  .map-wrap { flex: 0 0 240px; }
+}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════
+     SEARCH VIEW
+══════════════════════════════════════════ -->
+<section id="v-search" class="view active">
+  <nav class="nav">
+    <span class="logo">Campus<em>Score</em></span>
+    <span class="nav-tag">102 Universities · ML-scored</span>
+  </nav>
+
+  <div class="search-body">
+    <div class="search-left">
+      <p class="eyebrow">University Livability Index</p>
+      <h1 class="search-title">Find where<br>you'll <em>thrive.</em></h1>
+      <p class="search-body-text">Real Google Maps POI data, FBI crime statistics, live weather, and a neural network — combined into one honest score.</p>
+      <div class="stat-row">
+        <div class="stat-item"><div class="stat-num">102</div><div class="stat-lbl">Universities scored</div></div>
+        <div class="stat-item"><div class="stat-num">5</div><div class="stat-lbl">Livability dimensions</div></div>
+        <div class="stat-item"><div class="stat-num">ML</div><div class="stat-lbl">Neural net blended</div></div>
+      </div>
+    </div>
+
+    <div class="search-right">
+      <div>
+        <label class="form-label">Search a university</label>
+        <div class="search-wrap">
+          <input class="search-field" id="sinput" type="text" placeholder="e.g. MIT, UCLA, Purdue..." autocomplete="off" spellcheck="false">
+          <div class="ac-drop" id="acdrop"></div>
+        </div>
+        <button class="search-go" onclick="handleSearch()">Score this campus →</button>
+      </div>
+
+      <div>
+        <label class="form-label">Quick picks</label>
+        <div class="pill-row">
+          <button class="pill" onclick="go('nyu')">NYU</button>
+          <button class="pill" onclick="go('fordham university')">Fordham</button>
+          <button class="pill" onclick="go('northeastern university')">Northeastern</button>
+          <button class="pill" onclick="go('vanderbilt university')">Vanderbilt</button>
+          <button class="pill" onclick="go('uc berkeley')">UC Berkeley</button>
+          <button class="pill" onclick="go('purdue university')">Purdue</button>
+          <button class="pill" onclick="go('mit')">MIT</button>
+          <button class="pill" onclick="go('stanford university')">Stanford</button>
+          <button class="pill" onclick="go('carnegie mellon university')">CMU</button>
+          <button class="pill" onclick="go('rice university')">Rice</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-strip">
+    <span class="ds-tag">Walkability (Google Places API)</span>
+    <span class="ds-tag">Food &amp; Amenities (POI counts)</span>
+    <span class="ds-tag">Campus Spirit (stadiums, bars, libraries)</span>
+    <span class="ds-tag">Weather (Open-Meteo)</span>
+    <span class="ds-tag">Safety (hospital/pharmacy density)</span>
+    <span class="ds-tag">Neural net: PyTorch MLP</span>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     LOADING VIEW
+══════════════════════════════════════════ -->
+<section id="v-loading" class="view">
+  <nav class="nav">
+    <span class="logo">Campus<em>Score</em></span>
+  </nav>
+  <div class="load-inner">
+    <p class="load-hed">Scoring <span class="load-name" id="lname">—</span></p>
+    <ul class="load-list">
+      <li class="load-item" id="l0"><span class="load-dot"></span>Geocoding campus location</li>
+      <li class="load-item" id="l1"><span class="load-dot"></span>Querying Google Places API</li>
+      <li class="load-item" id="l2"><span class="load-dot"></span>Pulling weather data</li>
+      <li class="load-item" id="l3"><span class="load-dot"></span>Computing sub-scores</li>
+      <li class="load-item" id="l4"><span class="load-dot"></span>Running neural network</li>
+      <li class="load-item" id="l5"><span class="load-dot"></span>Blending formula + ML scores</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     RESULTS VIEW
+══════════════════════════════════════════ -->
+<section id="v-results" class="view">
+  <nav class="nav">
+    <span class="logo">Campus<em>Score</em></span>
+    <span class="nav-tag" id="r-nav-tag">—</span>
+  </nav>
+
+  <div class="res-topbar">
+    <button class="back" onclick="goBack()">← Back</button>
+    <div>
+      <div class="res-name-hdr" id="rname">—</div>
+      <div class="res-meta-hdr" id="rmeta"></div>
+    </div>
+    <div id="src-badge-wrap"></div>
+  </div>
+
+  <div class="res-grid">
+    <!-- LEFT -->
+    <div class="res-left">
+
+      <!-- Score ring -->
+      <div class="score-hero">
+        <div class="score-ring-wrap">
+          <svg width="120" height="120" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="52" fill="none" stroke="#DDD5C8" stroke-width="8"/>
+            <circle id="ring" cx="60" cy="60" r="52" fill="none" stroke="#2B5F3F" stroke-width="8"
+              stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
+          </svg>
+          <div class="score-center">
+            <span class="score-big" id="snum">0</span>
+            <span class="score-sub">/ 100</span>
+          </div>
+        </div>
+        <div class="score-info">
+          <div class="score-tier" id="stier">—</div>
+          <div class="score-desc" id="sdesc">—</div>
+        </div>
+      </div>
+
+      <hr class="section-rule">
+
+      <!-- Category bars -->
+      <div>
+        <p class="sec-label">Dimension Scores</p>
+        <div class="bars">
+          <div class="bar-row">
+            <div class="bar-top"><span class="bar-lbl">Walkability</span><span class="bar-num" id="bn-w">—</span></div>
+            <div class="track"><div class="fill" id="bf-w" style="background:var(--forest)"></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-top"><span class="bar-lbl">Food & Amenities</span><span class="bar-num" id="bn-f">—</span></div>
+            <div class="track"><div class="fill" id="bf-f" style="background:var(--sage)"></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-top"><span class="bar-lbl">Campus Spirit</span><span class="bar-num" id="bn-s">—</span></div>
+            <div class="track"><div class="fill" id="bf-s" style="background:var(--terra)"></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-top"><span class="bar-lbl">Weather</span><span class="bar-num" id="bn-wt">—</span></div>
+            <div class="track"><div class="fill" id="bf-wt" style="background:var(--gold)"></div></div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-top"><span class="bar-lbl">Safety</span><span class="bar-num" id="bn-sf">—</span></div>
+            <div class="track"><div class="fill" id="bf-sf" style="background:var(--ink2)"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="section-rule">
+
+      <!-- POI breakdown -->
+      <div>
+        <p class="sec-label">Nearby POIs (within 1 mi)</p>
+        <div class="poi-grid" id="poi-grid"></div>
+      </div>
+
+      <hr class="section-rule">
+
+      <!-- Weather raw -->
+      <div>
+        <p class="sec-label">Weather Data</p>
+        <div class="weather-row">
+          <div class="wx-cell"><div class="wx-val" id="wx-temp">—</div><div class="wx-lbl">Avg temp (°C)</div></div>
+          <div class="wx-cell"><div class="wx-val" id="wx-rain">—</div><div class="wx-lbl">Precip (mm/day)</div></div>
+          <div class="wx-cell"><div class="wx-val" id="wx-sun">—</div><div class="wx-lbl">Sun hrs/day</div></div>
+        </div>
+      </div>
+
+    </div><!-- /res-left -->
+
+    <!-- RIGHT -->
+    <div class="res-right">
+      <div class="map-wrap">
+        <div id="leaflet-map"></div>
+      </div>
+
+      <div class="res-right-body">
+
+        <!-- Radar -->
+        <div class="radar-wrap">
+          <p class="sec-label">Score Radar</p>
+          <canvas id="radar" height="200"></canvas>
+        </div>
+
+        <!-- Personalization -->
+        <div class="pref-card">
+          <div class="pref-top">
+            <span class="pref-hed">Personalize your score</span>
+            <span class="pers-score-tag" id="pers-tag">Your score: —</span>
+          </div>
+          <div class="sliders-grid">
+            <div class="sl-row">
+              <span class="sl-lbl">Walkability</span>
+              <div class="sl-ends"><span>Less</span><span>Essential</span></div>
+              <input type="range" id="pw" min="0" max="100" value="50" oninput="recalc()">
+            </div>
+            <div class="sl-row">
+              <span class="sl-lbl">Food & Nightlife</span>
+              <div class="sl-ends"><span>Less</span><span>Essential</span></div>
+              <input type="range" id="pf" min="0" max="100" value="50" oninput="recalc()">
+            </div>
+            <div class="sl-row">
+              <span class="sl-lbl">Campus Spirit</span>
+              <div class="sl-ends"><span>Quiet</span><span>Loud</span></div>
+              <input type="range" id="ps" min="0" max="100" value="50" oninput="recalc()">
+            </div>
+            <div class="sl-row">
+              <span class="sl-lbl">Weather</span>
+              <div class="sl-ends"><span>Don't care</span><span>Very important</span></div>
+              <input type="range" id="pwt" min="0" max="100" value="50" oninput="recalc()">
+            </div>
+            <div class="sl-row">
+              <span class="sl-lbl">Safety</span>
+              <div class="sl-ends"><span>Less</span><span>Priority</span></div>
+              <input type="range" id="psf" min="0" max="100" value="50" oninput="recalc()">
+            </div>
+          </div>
+        </div>
+
+        <!-- Compare -->
+        <div class="compare-card">
+          <div class="cmp-col">
+            <div class="cmp-hed">Formula + ML score</div>
+            <div class="cmp-num default" id="cdefault">—</div>
+          </div>
+          <div class="cmp-col">
+            <div class="cmp-hed">Your personalized score</div>
+            <div class="cmp-num personal" id="cpersonal">—</div>
+            <div class="cmp-diff" id="cdiff"></div>
+          </div>
+        </div>
+
+        <!-- AI explain -->
+        <div class="ai-card">
+          <div class="ai-hed">What the data says</div>
+          <div class="ai-txt" id="aitxt">—</div>
+        </div>
+
+        <!-- Top picks for you -->
+        <div class="ai-card" id="rank-card" style="display:none">
+          <div class="ai-hed" style="display:flex;align-items:center;justify-content:space-between;">
+            <span>Top campuses for you</span>
+            <span style="font-family:var(--fm);font-size:0.68rem;color:var(--ink3)" id="rank-sub">based on your weights</span>
+          </div>
+          <div id="rank-list" style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.6rem;"></div>
+        </div>
+
+      </div>
+    </div><!-- /res-right -->
+
+  </div>
+</section>
+
+<script>
+const ML_DB = {
+  "university of michigan":{name:"University of Michigan",lat:42.277145,lng:-83.7382071,overall:70.6,scores:{walkability:55.8,food_amenities:94.0,campus_spirit:80.0,weather:58.3,safety:68.0},weather_raw:{temp_c:10.7,precip_mm:7.66,sun_hrs:5.1},poi:{restaurant:20,cafe:20,gym:20,grocery:4,bar:20,transit:20,stadium:4,library:15}},
+  "ohio state university":{name:"Ohio State University",lat:39.9625112,lng:-83.0032218,overall:79.2,scores:{walkability:64.8,food_amenities:92.0,campus_spirit:75.0,weather:83.6,safety:86.0},weather_raw:{temp_c:16.6,precip_mm:3.03,sun_hrs:7.3},poi:{restaurant:20,cafe:20,gym:20,grocery:1,bar:20,transit:20,stadium:3,library:11}},
+  "ucla":{name:"UCLA",lat:34.0699182,lng:-118.4438495,overall:82.4,scores:{walkability:63.7,food_amenities:83.2,campus_spirit:84.0,weather:99.4,safety:88.0},weather_raw:{temp_c:17.6,precip_mm:0.0,sun_hrs:10.6},poi:{restaurant:20,cafe:20,gym:15,grocery:3,bar:9,transit:20,stadium:4,library:17}},
+  "mit":{name:"MIT",lat:42.360091,lng:-71.09416,overall:74.2,scores:{walkability:70.5,food_amenities:98.0,campus_spirit:80.0,weather:65.7,safety:52.0},weather_raw:{temp_c:9.1,precip_mm:3.11,sun_hrs:5.4},poi:{restaurant:20,cafe:20,gym:20,grocery:6,bar:20,transit:20,stadium:3,library:20}},
+  "university of texas at austin":{name:"University of Texas at Austin",lat:30.2894713,lng:-97.7367917,overall:77.6,scores:{walkability:66.8,food_amenities:91.5,campus_spirit:77.5,weather:78.3,safety:76.0},weather_raw:{temp_c:23.1,precip_mm:6.64,sun_hrs:9.9},poi:{restaurant:20,cafe:20,gym:11,grocery:3,bar:20,transit:20,stadium:5,library:20}},
+  "penn state university":{name:"Penn State University",lat:40.8147955,lng:-77.86531260000001,overall:37.7,scores:{walkability:41.0,food_amenities:14.3,campus_spirit:37.0,weather:84.4,safety:2.0},weather_raw:{temp_c:15.1,precip_mm:3.09,sun_hrs:8.4},poi:{restaurant:5,cafe:3,gym:1,grocery:0,bar:0,transit:20,stadium:5,library:1}},
+  "university of florida":{name:"University of Florida",lat:29.6465428,lng:-82.3533266,overall:76.9,scores:{walkability:67.0,food_amenities:76.5,campus_spirit:63.0,weather:86.3,safety:100.0},weather_raw:{temp_c:22.8,precip_mm:0.16,sun_hrs:8.1},poi:{restaurant:20,cafe:20,gym:3,grocery:2,bar:8,transit:20,stadium:6,library:12}},
+  "nyu":{name:"NYU",lat:40.72951339999999,lng:-73.9964609,overall:90.2,scores:{walkability:100.0,food_amenities:100.0,campus_spirit:65.0,weather:85.9,safety:100.0},weather_raw:{temp_c:15.7,precip_mm:2.49,sun_hrs:8.2},poi:{restaurant:20,cafe:20,gym:20,grocery:20,bar:20,transit:20,stadium:0,library:20}},
+  "arizona state university":{name:"Arizona State University",lat:33.4229975,lng:-111.9278306,overall:71.4,scores:{walkability:59.5,food_amenities:100.0,campus_spirit:70.0,weather:85.7,safety:36.0},weather_raw:{temp_c:26.9,precip_mm:0.01,sun_hrs:11.9},poi:{restaurant:20,cafe:20,gym:20,grocery:3,bar:20,transit:20,stadium:7,library:5}},
+  "university of wisconsin-madison":{name:"University of Wisconsin-Madison",lat:43.07551429999999,lng:-89.4154526,overall:78.6,scores:{walkability:69.8,food_amenities:85.0,campus_spirit:80.0,weather:65.8,safety:100.0},weather_raw:{temp_c:6.6,precip_mm:3.61,sun_hrs:7.1},poi:{restaurant:20,cafe:20,gym:6,grocery:3,bar:20,transit:20,stadium:4,library:20}},
+  "uc berkeley":{name:"UC Berkeley",lat:37.8712141,lng:-122.255463,overall:83.9,scores:{walkability:69.2,food_amenities:100.0,campus_spirit:77.5,weather:95.6,safety:80.0},weather_raw:{temp_c:15.6,precip_mm:0.29,sun_hrs:11.6},poi:{restaurant:20,cafe:20,gym:20,grocery:4,bar:20,transit:20,stadium:4,library:20}},
+  "university of washington":{name:"University of Washington",lat:47.6565919,lng:-122.3126783,overall:74.9,scores:{walkability:58.0,food_amenities:98.0,campus_spirit:77.5,weather:72.4,safety:72.0},weather_raw:{temp_c:7.0,precip_mm:3.05,sun_hrs:8.7},poi:{restaurant:20,cafe:20,gym:20,grocery:3,bar:20,transit:20,stadium:5,library:20}},
+  "indiana university":{name:"Indiana University",lat:39.1682449,lng:-86.52300729999999,overall:76.9,scores:{walkability:56.5,food_amenities:94.5,campus_spirit:87.5,weather:88.4,safety:58.0},weather_raw:{temp_c:16.9,precip_mm:3.29,sun_hrs:8.9},poi:{restaurant:20,cafe:20,gym:17,grocery:2,bar:20,transit:20,stadium:4,library:13}},
+  "purdue university":{name:"Purdue University",lat:40.4237054,lng:-86.92119459999999,overall:57.5,scores:{walkability:52.3,food_amenities:77.0,campus_spirit:55.3,weather:76.4,safety:18.0},weather_raw:{temp_c:14.6,precip_mm:6.21,sun_hrs:8.1},poi:{restaurant:20,cafe:20,gym:2,grocery:2,bar:12,transit:20,stadium:2,library:15}},
+  "university of illinois urbana-champaign":{name:"University of Illinois Urbana-Champaign",lat:40.0985023,lng:-88.2290783,overall:60.0,scores:{walkability:51.0,food_amenities:81.0,campus_spirit:69.0,weather:77.5,safety:12.0},weather_raw:{temp_c:14.8,precip_mm:5.71,sun_hrs:8.0},poi:{restaurant:20,cafe:20,gym:3,grocery:1,bar:14,transit:20,stadium:7,library:20}},
+  "michigan state university":{name:"Michigan State University",lat:42.7250725,lng:-84.47908269999999,overall:60.9,scores:{walkability:59.5,food_amenities:92.0,campus_spirit:63.0,weather:53.9,safety:28.0},weather_raw:{temp_c:8.9,precip_mm:11.13,sun_hrs:6.9},poi:{restaurant:20,cafe:20,gym:8,grocery:2,bar:20,transit:20,stadium:4,library:4}},
+  "university of minnesota":{name:"University of Minnesota",lat:44.97399,lng:-93.2277285,overall:74.1,scores:{walkability:62.7,food_amenities:82.0,campus_spirit:65.8,weather:79.9,safety:86.0},weather_raw:{temp_c:6.4,precip_mm:0.31,sun_hrs:9.7},poi:{restaurant:20,cafe:20,gym:4,grocery:3,bar:20,transit:20,stadium:2,library:20}},
+  "university of colorado boulder":{name:"University of Colorado Boulder",lat:40.0073499,lng:-105.2659871,overall:75.5,scores:{walkability:61.3,food_amenities:100.0,campus_spirit:82.5,weather:84.1,safety:46.0},weather_raw:{temp_c:10.7,precip_mm:2.09,sun_hrs:10.1},poi:{restaurant:20,cafe:20,gym:20,grocery:4,bar:20,transit:20,stadium:3,library:13}},
+  "university of oregon":{name:"University of Oregon",lat:44.0448302,lng:-123.0726055,overall:70.1,scores:{walkability:57.8,food_amenities:89.5,campus_spirit:77.5,weather:70.9,safety:54.0},weather_raw:{temp_c:7.9,precip_mm:6.16,sun_hrs:9.8},poi:{restaurant:20,cafe:20,gym:11,grocery:4,bar:20,transit:20,stadium:4,library:20}},
+  "university of arizona":{name:"University of Arizona",lat:32.2318981,lng:-110.9535407,overall:77.2,scores:{walkability:55.5,food_amenities:94.0,campus_spirit:80.0,weather:88.5,safety:72.0},weather_raw:{temp_c:24.6,precip_mm:0.47,sun_hrs:11.4},poi:{restaurant:20,cafe:20,gym:16,grocery:1,bar:20,transit:20,stadium:6,library:11}},
+  "georgia tech":{name:"Georgia Tech",lat:33.7779791,lng:-84.3979638,overall:80.7,scores:{walkability:68.0,food_amenities:100.0,campus_spirit:69.5,weather:92.0,safety:76.0},weather_raw:{temp_c:19.5,precip_mm:1.77,sun_hrs:9.3},poi:{restaurant:20,cafe:20,gym:20,grocery:7,bar:20,transit:20,stadium:4,library:6}},
+  "university of georgia":{name:"University of Georgia",lat:33.9423394,lng:-83.37242420000001,overall:55.7,scores:{walkability:54.0,food_amenities:67.0,campus_spirit:45.3,weather:89.7,safety:12.0},weather_raw:{temp_c:18.8,precip_mm:2.7,sun_hrs:8.8},poi:{restaurant:20,cafe:12,gym:8,grocery:1,bar:8,transit:20,stadium:2,library:7}},
+  "clemson university":{name:"Clemson University",lat:34.6767605,lng:-82.83444209999999,overall:63.4,scores:{walkability:56.2,food_amenities:73.8,campus_spirit:65.0,weather:91.3,safety:22.0},weather_raw:{temp_c:18.1,precip_mm:3.96,sun_hrs:9.8},poi:{restaurant:20,cafe:13,gym:5,grocery:0,bar:20,transit:20,stadium:7,library:5}},
+  "duke university":{name:"Duke University",lat:36.0014258,lng:-78.9382286,overall:76.6,scores:{walkability:64.2,food_amenities:69.0,campus_spirit:59.0,weather:99.6,safety:100.0},weather_raw:{temp_c:17.9,precip_mm:0.11,sun_hrs:10.7},poi:{restaurant:20,cafe:20,gym:2,grocery:1,bar:4,transit:20,stadium:4,library:15}},
+  "university of north carolina":{name:"University of North Carolina",lat:35.9049122,lng:-79.0469134,overall:78.5,scores:{walkability:54.0,food_amenities:86.5,campus_spirit:77.5,weather:99.4,safety:82.0},weather_raw:{temp_c:18.0,precip_mm:0.3,sun_hrs:10.4},poi:{restaurant:20,cafe:20,gym:9,grocery:0,bar:20,transit:20,stadium:8,library:14}},
+  "northwestern university":{name:"Northwestern University",lat:42.0564594,lng:-87.67526699999999,overall:59.1,scores:{walkability:55.8,food_amenities:82.5,campus_spirit:35.0,weather:60.4,safety:64.0},weather_raw:{temp_c:9.7,precip_mm:9.73,sun_hrs:7.7},poi:{restaurant:20,cafe:20,gym:20,grocery:2,bar:10,transit:20,stadium:0,library:10}},
+  "university of chicago":{name:"University of Chicago",lat:41.791942,lng:-87.602839,overall:75.0,scores:{walkability:72.0,food_amenities:92.2,campus_spirit:63.8,weather:60.2,safety:92.0},weather_raw:{temp_c:11.2,precip_mm:10.09,sun_hrs:7.1},poi:{restaurant:20,cafe:20,gym:15,grocery:5,bar:13,transit:20,stadium:2,library:14}},
+  "vanderbilt university":{name:"Vanderbilt University",lat:36.1447034,lng:-86.8026551,overall:85.6,scores:{walkability:71.2,food_amenities:92.0,campus_spirit:77.5,weather:94.3,safety:100.0},weather_raw:{temp_c:19.3,precip_mm:1.81,sun_hrs:10.7},poi:{restaurant:20,cafe:20,gym:20,grocery:0,bar:20,transit:20,stadium:6,library:14}},
+  "tulane university":{name:"Tulane University",lat:29.9407282,lng:-90.12031669999999,overall:67.7,scores:{walkability:57.5,food_amenities:94.5,campus_spirit:75.0,weather:80.7,safety:22.0},weather_raw:{temp_c:23.0,precip_mm:4.46,sun_hrs:9.2},poi:{restaurant:20,cafe:20,gym:17,grocery:1,bar:20,transit:20,stadium:3,library:14}},
+  "university of miami":{name:"University of Miami",lat:25.7169568,lng:-80.2798198,overall:64.8,scores:{walkability:57.8,food_amenities:88.5,campus_spirit:27.0,weather:78.0,safety:78.0},weather_raw:{temp_c:24.4,precip_mm:5.57,sun_hrs:9.8},poi:{restaurant:20,cafe:20,gym:16,grocery:4,bar:10,transit:20,stadium:0,library:6}},
+  "boston university":{name:"Boston University",lat:42.3504997,lng:-71.1053991,overall:82.5,scores:{walkability:82.0,food_amenities:96.0,campus_spirit:77.5,weather:65.9,safety:94.0},weather_raw:{temp_c:9.2,precip_mm:3.11,sun_hrs:5.4},poi:{restaurant:20,cafe:20,gym:20,grocery:8,bar:20,transit:20,stadium:7,library:20}},
+  "northeastern university":{name:"Northeastern University",lat:42.3398067,lng:-71.0891717,overall:85.9,scores:{walkability:88.8,food_amenities:100.0,campus_spirit:77.5,weather:66.1,safety:100.0},weather_raw:{temp_c:9.3,precip_mm:3.11,sun_hrs:5.4},poi:{restaurant:20,cafe:20,gym:20,grocery:11,bar:20,transit:20,stadium:4,library:20}},
+  "tufts university":{name:"Tufts University",lat:42.4085371,lng:-71.1182729,overall:64.6,scores:{walkability:60.8,food_amenities:90.0,campus_spirit:73.5,weather:65.6,safety:24.0},weather_raw:{temp_c:8.6,precip_mm:2.61,sun_hrs:5.3},poi:{restaurant:20,cafe:20,gym:20,grocery:1,bar:20,transit:20,stadium:7,library:8}},
+  "georgetown university":{name:"Georgetown University",lat:38.9076089,lng:-77.07225849999999,overall:79.6,scores:{walkability:63.7,food_amenities:100.0,campus_spirit:65.8,weather:97.1,safety:74.0},weather_raw:{temp_c:19.2,precip_mm:0.5,sun_hrs:10.9},poi:{restaurant:20,cafe:20,gym:20,grocery:5,bar:20,transit:20,stadium:2,library:13}},
+  "george washington university":{name:"George Washington University",lat:38.8997145,lng:-77.0485992,overall:85.9,scores:{walkability:81.2,food_amenities:100.0,campus_spirit:56.7,weather:96.4,safety:100.0},weather_raw:{temp_c:19.6,precip_mm:0.54,sun_hrs:10.9},poi:{restaurant:20,cafe:20,gym:20,grocery:5,bar:20,transit:20,stadium:1,library:20}},
+  "american university":{name:"American University",lat:38.9380155,lng:-77.088922,overall:66.8,scores:{walkability:60.0,food_amenities:85.0,campus_spirit:43.3,weather:97.6,safety:44.0},weather_raw:{temp_c:18.9,precip_mm:0.5,sun_hrs:10.8},poi:{restaurant:20,cafe:18,gym:20,grocery:5,bar:6,transit:20,stadium:2,library:7}},
+  "university of southern california":{name:"University of Southern California",lat:34.0223519,lng:-118.285117,overall:81.5,scores:{walkability:69.7,food_amenities:86.8,campus_spirit:80.5,weather:97.4,safety:74.0},weather_raw:{temp_c:19.6,precip_mm:0.0,sun_hrs:10.6},poi:{restaurant:20,cafe:20,gym:16,grocery:8,bar:13,transit:20,stadium:9,library:20}},
+  "stanford university":{name:"Stanford University",lat:37.42766,lng:-122.17006,overall:69.4,scores:{walkability:46.2,food_amenities:79.3,campus_spirit:62.0,weather:96.8,safety:68.0},weather_raw:{temp_c:16.1,precip_mm:0.09,sun_hrs:11.3},poi:{restaurant:20,cafe:20,gym:10,grocery:0,bar:7,transit:20,stadium:7,library:18}},
+  "uc san diego":{name:"UC San Diego",lat:32.881168,lng:-117.2343605,overall:70.2,scores:{walkability:51.0,food_amenities:79.8,campus_spirit:53.3,weather:98.8,safety:74.0},weather_raw:{temp_c:17.6,precip_mm:0.0,sun_hrs:9.8},poi:{restaurant:20,cafe:20,gym:8,grocery:2,bar:9,transit:20,stadium:2,library:8}},
+  "uc davis":{name:"UC Davis",lat:38.5382322,lng:-121.7617125,overall:55.1,scores:{walkability:45.8,food_amenities:56.3,campus_spirit:49.0,weather:97.7,safety:20.0},weather_raw:{temp_c:16.7,precip_mm:0.09,sun_hrs:11.3},poi:{restaurant:20,cafe:11,gym:1,grocery:2,bar:0,transit:20,stadium:7,library:7}},
+  "uc santa barbara":{name:"UC Santa Barbara",lat:34.4139629,lng:-119.848947,overall:50.0,scores:{walkability:42.3,food_amenities:59.8,campus_spirit:37.3,weather:100.0,safety:0.0},weather_raw:{temp_c:18.0,precip_mm:0.01,sun_hrs:10.0},poi:{restaurant:20,cafe:12,gym:5,grocery:0,bar:3,transit:20,stadium:2,library:3}},
+  "oregon state university":{name:"Oregon State University",lat:44.5646356,lng:-123.2619607,overall:59.6,scores:{walkability:49.5,food_amenities:87.5,campus_spirit:77.5,weather:68.3,safety:4.0},weather_raw:{temp_c:7.7,precip_mm:6.24,sun_hrs:9.1},poi:{restaurant:20,cafe:20,gym:15,grocery:3,bar:20,transit:20,stadium:7,library:20}},
+  "washington state university":{name:"Washington State University",lat:46.7288927,lng:-117.1468351,overall:40.8,scores:{walkability:44.5,food_amenities:29.8,campus_spirit:43.0,weather:70.9,safety:6.0},weather_raw:{temp_c:4.6,precip_mm:1.73,sun_hrs:8.6},poi:{restaurant:10,cafe:5,gym:4,grocery:0,bar:2,transit:20,stadium:4,library:3}},
+  "university of utah":{name:"University of Utah",lat:40.7649368,lng:-111.8421021,overall:73.5,scores:{walkability:64.5,food_amenities:70.0,campus_spirit:57.5,weather:84.4,safety:100.0},weather_raw:{temp_c:11.0,precip_mm:2.19,sun_hrs:10.6},poi:{restaurant:20,cafe:20,gym:4,grocery:0,bar:4,transit:20,stadium:6,library:8}},
+  "brigham young university":{name:"Brigham Young University",lat:40.2518435,lng:-111.6493156,overall:66.9,scores:{walkability:57.8,food_amenities:66.3,campus_spirit:51.0,weather:88.0,safety:76.0},weather_raw:{temp_c:12.1,precip_mm:1.3,sun_hrs:11.2},poi:{restaurant:20,cafe:16,gym:7,grocery:3,bar:1,transit:20,stadium:4,library:5}},
+  "colorado state university":{name:"Colorado State University",lat:40.5729432,lng:-105.0848391,overall:65.7,scores:{walkability:56.8,food_amenities:94.0,campus_spirit:61.0,weather:87.4,safety:20.0},weather_raw:{temp_c:12.0,precip_mm:1.51,sun_hrs:10.4},poi:{restaurant:20,cafe:20,gym:16,grocery:3,bar:20,transit:20,stadium:4,library:3}},
+  "university of new mexico":{name:"University of New Mexico",lat:35.0907712,lng:-106.6210407,overall:70.2,scores:{walkability:55.8,food_amenities:82.8,campus_spirit:42.0,weather:98.0,safety:78.0},weather_raw:{temp_c:17.9,precip_mm:0.94,sun_hrs:10.9},poi:{restaurant:20,cafe:20,gym:6,grocery:0,bar:17,transit:20,stadium:0,library:15}},
+  "university of nevada las vegas":{name:"University of Nevada Las Vegas",lat:36.1079258,lng:-115.1427692,overall:75.8,scores:{walkability:75.2,food_amenities:93.0,campus_spirit:69.0,weather:91.4,safety:42.0},weather_raw:{temp_c:23.3,precip_mm:0.04,sun_hrs:11.6},poi:{restaurant:20,cafe:20,gym:6,grocery:9,bar:20,transit:20,stadium:6,library:7}},
+  "boise state university":{name:"Boise State University",lat:43.6150186,lng:-116.2023137,overall:77.7,scores:{walkability:73.2,food_amenities:94.0,campus_spirit:48.7,weather:82.3,safety:96.0},weather_raw:{temp_c:9.7,precip_mm:2.19,sun_hrs:10.0},poi:{restaurant:20,cafe:20,gym:20,grocery:5,bar:20,transit:20,stadium:1,library:6}},
+  "university of idaho":{name:"University of Idaho",lat:46.7288124,lng:-117.0126084,overall:60.8,scores:{walkability:59.5,food_amenities:89.5,campus_spirit:42.7,weather:70.3,safety:36.0},weather_raw:{temp_c:4.4,precip_mm:1.89,sun_hrs:8.6},poi:{restaurant:20,cafe:20,gym:14,grocery:3,bar:18,transit:20,stadium:1,library:4}},
+  "iowa state university":{name:"Iowa State University",lat:42.0266573,lng:-93.64645159999999,overall:48.4,scores:{walkability:46.2,food_amenities:74.2,campus_spirit:30.7,weather:73.4,safety:8.0},weather_raw:{temp_c:10.1,precip_mm:5.16,sun_hrs:8.8},poi:{restaurant:20,cafe:18,gym:4,grocery:0,bar:13,transit:20,stadium:1,library:3}},
+  "university of iowa":{name:"University of Iowa",lat:41.66270780000001,lng:-91.5549771,overall:65.5,scores:{walkability:57.2,food_amenities:60.5,campus_spirit:63.5,weather:69.0,safety:84.0},weather_raw:{temp_c:10.1,precip_mm:4.1,sun_hrs:6.6},poi:{restaurant:20,cafe:10,gym:7,grocery:0,bar:6,transit:20,stadium:3,library:10}},
+  "university of nebraska":{name:"University of Nebraska",lat:40.8201966,lng:-96.70047629999999,overall:69.8,scores:{walkability:59.8,food_amenities:86.5,campus_spirit:80.0,weather:77.7,safety:40.0},weather_raw:{temp_c:11.3,precip_mm:4.27,sun_hrs:9.0},poi:{restaurant:20,cafe:20,gym:9,grocery:4,bar:20,transit:20,stadium:3,library:11}},
+  "kansas state university":{name:"Kansas State University",lat:39.1974437,lng:-96.5847249,overall:66.0,scores:{walkability:49.0,food_amenities:73.0,campus_spirit:67.0,weather:84.0,safety:60.0},weather_raw:{temp_c:14.2,precip_mm:2.41,sun_hrs:8.3},poi:{restaurant:20,cafe:12,gym:2,grocery:0,bar:20,transit:20,stadium:3,library:6}},
+  "university of kansas":{name:"University of Kansas",lat:38.9543439,lng:-95.2557961,overall:56.1,scores:{walkability:50.3,food_amenities:63.5,campus_spirit:54.3,weather:80.5,safety:26.0},weather_raw:{temp_c:14.1,precip_mm:3.94,sun_hrs:8.2},poi:{restaurant:20,cafe:9,gym:4,grocery:2,bar:11,transit:20,stadium:2,library:10}},
+  "university of missouri":{name:"University of Missouri",lat:38.9403808,lng:-92.32773750000001,overall:71.7,scores:{walkability:54.5,food_amenities:87.0,campus_spirit:77.5,weather:65.9,safety:80.0},weather_raw:{temp_c:15.1,precip_mm:11.27,sun_hrs:7.7},poi:{restaurant:20,cafe:20,gym:6,grocery:0,bar:20,transit:20,stadium:4,library:14}},
+  "saint louis university":{name:"Saint Louis University",lat:38.6358876,lng:-90.23412309999999,overall:75.6,scores:{walkability:60.5,food_amenities:88.5,campus_spirit:70.0,weather:79.4,safety:86.0},weather_raw:{temp_c:17.5,precip_mm:8.71,sun_hrs:9.2},poi:{restaurant:20,cafe:20,gym:13,grocery:3,bar:20,transit:20,stadium:4,library:5}},
+  "washington university in st louis":{name:"Washington University in St Louis",lat:38.6487895,lng:-90.31079620000001,overall:57.2,scores:{walkability:48.3,food_amenities:80.2,campus_spirit:60.3,weather:74.6,safety:14.0},weather_raw:{temp_c:17.6,precip_mm:11.19,sun_hrs:9.2},poi:{restaurant:20,cafe:18,gym:6,grocery:1,bar:17,transit:20,stadium:2,library:12}},
+  "university of kentucky":{name:"University of Kentucky",lat:38.0306511,lng:-84.5039697,overall:83.6,scores:{walkability:65.2,food_amenities:97.0,campus_spirit:77.5,weather:96.1,safety:88.0},weather_raw:{temp_c:18.1,precip_mm:1.87,sun_hrs:10.9},poi:{restaurant:20,cafe:20,gym:18,grocery:3,bar:20,transit:20,stadium:7,library:10}},
+  "university of louisville":{name:"University of Louisville",lat:38.2157954,lng:-85.7614322,overall:66.7,scores:{walkability:55.2,food_amenities:67.5,campus_spirit:57.5,weather:96.1,safety:58.0},weather_raw:{temp_c:18.8,precip_mm:1.3,sun_hrs:10.3},poi:{restaurant:20,cafe:12,gym:2,grocery:1,bar:10,transit:20,stadium:3,library:5}},
+  "university of tennessee":{name:"University of Tennessee",lat:35.9489531,lng:-83.93742259999999,overall:70.1,scores:{walkability:54.5,food_amenities:69.3,campus_spirit:60.0,weather:96.2,safety:76.0},weather_raw:{temp_c:18.5,precip_mm:1.51,sun_hrs:11.1},poi:{restaurant:20,cafe:16,gym:4,grocery:1,bar:7,transit:20,stadium:8,library:9}},
+  "belmont university":{name:"Belmont University",lat:36.1329081,lng:-86.7941702,overall:78.0,scores:{walkability:69.5,food_amenities:89.0,campus_spirit:45.0,weather:94.3,safety:100.0},weather_raw:{temp_c:19.3,precip_mm:1.81,sun_hrs:10.7},poi:{restaurant:20,cafe:20,gym:18,grocery:1,bar:20,transit:20,stadium:0,library:11}},
+  "auburn university":{name:"Auburn University",lat:32.5980549,lng:-85.4942667,overall:51.3,scores:{walkability:21.5,food_amenities:70.0,campus_spirit:52.0,weather:89.7,safety:24.0},weather_raw:{temp_c:19.1,precip_mm:2.75,sun_hrs:9.0},poi:{restaurant:20,cafe:15,gym:2,grocery:2,bar:11,transit:2,stadium:8,library:3}},
+  "university of alabama":{name:"University of Alabama",lat:33.2114385,lng:-87.5401002,overall:68.6,scores:{walkability:51.2,food_amenities:70.0,campus_spirit:70.0,weather:83.6,safety:74.0},weather_raw:{temp_c:20.5,precip_mm:3.36,sun_hrs:8.1},poi:{restaurant:20,cafe:11,gym:2,grocery:1,bar:15,transit:17,stadium:4,library:12}},
+  "mississippi state university":{name:"Mississippi State University",lat:33.4503998,lng:-88.81838719999999,overall:43.2,scores:{walkability:19.0,food_amenities:74.2,campus_spirit:11.0,weather:87.5,safety:26.0},weather_raw:{temp_c:20.0,precip_mm:1.96,sun_hrs:8.2},poi:{restaurant:20,cafe:10,gym:10,grocery:0,bar:9,transit:0,stadium:0,library:1}},
+  "louisiana state university":{name:"Louisiana State University",lat:30.4102406,lng:-91.18570590000002,overall:56.2,scores:{walkability:47.2,food_amenities:68.0,campus_spirit:59.0,weather:88.8,safety:8.0},weather_raw:{temp_c:22.6,precip_mm:1.93,sun_hrs:10.4},poi:{restaurant:20,cafe:14,gym:2,grocery:2,bar:10,transit:20,stadium:5,library:7}},
+  "university of arkansas":{name:"University of Arkansas",lat:36.0686895,lng:-94.1748471,overall:64.1,scores:{walkability:61.0,food_amenities:87.5,campus_spirit:67.0,weather:79.1,safety:14.0},weather_raw:{temp_c:17.0,precip_mm:8.61,sun_hrs:9.3},poi:{restaurant:20,cafe:20,gym:7,grocery:4,bar:20,transit:20,stadium:6,library:6}},
+  "oklahoma state university":{name:"Oklahoma State University",lat:36.126572,lng:-97.07348209999999,overall:62.0,scores:{walkability:54.0,food_amenities:71.2,campus_spirit:55.0,weather:89.3,safety:36.0},weather_raw:{temp_c:18.2,precip_mm:4.13,sun_hrs:9.3},poi:{restaurant:20,cafe:15,gym:3,grocery:1,bar:12,transit:20,stadium:8,library:4}},
+  "university of oklahoma":{name:"University of Oklahoma",lat:35.1987162,lng:-97.4448963,overall:59.3,scores:{walkability:46.2,food_amenities:71.5,campus_spirit:69.0,weather:96.8,safety:2.0},weather_raw:{temp_c:18.6,precip_mm:1.13,sun_hrs:10.1},poi:{restaurant:20,cafe:14,gym:3,grocery:0,bar:14,transit:20,stadium:8,library:10}},
+  "texas a&m university":{name:"Texas A&M University",lat:30.6186625,lng:-96.3364251,overall:60.6,scores:{walkability:55.0,food_amenities:90.0,campus_spirit:53.8,weather:85.8,safety:6.0},weather_raw:{temp_c:22.1,precip_mm:3.84,sun_hrs:10.1},poi:{restaurant:20,cafe:20,gym:8,grocery:0,bar:20,transit:20,stadium:2,library:4}},
+  "texas tech university":{name:"Texas Tech University",lat:33.5844949,lng:-101.8751391,overall:69.7,scores:{walkability:53.3,food_amenities:80.5,campus_spirit:63.0,weather:96.4,safety:56.0},weather_raw:{temp_c:20.1,precip_mm:0.11,sun_hrs:11.7},poi:{restaurant:20,cafe:16,gym:7,grocery:2,bar:20,transit:20,stadium:6,library:4}},
+  "rice university":{name:"Rice University",lat:29.7168363,lng:-95.4035531,overall:82.8,scores:{walkability:63.7,food_amenities:97.5,campus_spirit:75.5,weather:86.4,safety:100.0},weather_raw:{temp_c:23.2,precip_mm:2.63,sun_hrs:10.8},poi:{restaurant:20,cafe:20,gym:15,grocery:0,bar:20,transit:20,stadium:3,library:9}},
+  "baylor university":{name:"Baylor University",lat:31.5500848,lng:-97.11354,overall:55.1,scores:{walkability:37.5,food_amenities:79.8,campus_spirit:65.0,weather:80.7,safety:4.0},weather_raw:{temp_c:22.0,precip_mm:6.46,sun_hrs:10.1},poi:{restaurant:20,cafe:19,gym:7,grocery:0,bar:14,transit:14,stadium:6,library:8}},
+  "tcu":{name:"TCU",lat:32.7078531,lng:-97.36280409999999,overall:56.7,scores:{walkability:57.2,food_amenities:73.0,campus_spirit:45.0,weather:81.8,safety:16.0},weather_raw:{temp_c:20.8,precip_mm:6.87,sun_hrs:10.0},poi:{restaurant:20,cafe:14,gym:7,grocery:2,bar:8,transit:20,stadium:4,library:1}},
+  "smu":{name:"SMU",lat:32.8412178,lng:-96.78451749999999,overall:70.1,scores:{walkability:57.2,food_amenities:95.5,campus_spirit:65.5,weather:75.9,safety:56.0},weather_raw:{temp_c:21.0,precip_mm:9.34,sun_hrs:9.8},poi:{restaurant:20,cafe:20,gym:20,grocery:1,bar:14,transit:20,stadium:4,library:7}},
+  "university of houston":{name:"University of Houston",lat:29.7204627,lng:-95.34293190000001,overall:55.3,scores:{walkability:50.3,food_amenities:59.5,campus_spirit:60.5,weather:86.1,safety:10.0},weather_raw:{temp_c:23.4,precip_mm:2.63,sun_hrs:10.9},poi:{restaurant:20,cafe:13,gym:2,grocery:0,bar:3,transit:20,stadium:6,library:11}},
+  "university of virginia":{name:"University of Virginia",lat:38.0335529,lng:-78.5079772,overall:76.0,scores:{walkability:55.8,food_amenities:84.5,campus_spirit:75.5,weather:99.0,safety:68.0},weather_raw:{temp_c:17.9,precip_mm:0.43,sun_hrs:10.9},poi:{restaurant:20,cafe:20,gym:8,grocery:1,bar:18,transit:20,stadium:7,library:12}},
+  "virginia tech":{name:"Virginia Tech",lat:37.22838429999999,lng:-80.42341669999999,overall:62.4,scores:{walkability:51.0,food_amenities:85.8,campus_spirit:63.5,weather:91.2,safety:10.0},weather_raw:{temp_c:14.5,precip_mm:1.6,sun_hrs:10.3},poi:{restaurant:20,cafe:17,gym:7,grocery:0,bar:20,transit:20,stadium:6,library:3}},
+  "william and mary":{name:"William and Mary",lat:37.2709753,lng:-76.7162467,overall:60.9,scores:{walkability:47.0,food_amenities:81.2,campus_spirit:53.8,weather:98.6,safety:16.0},weather_raw:{temp_c:18.9,precip_mm:0.0,sun_hrs:11.7},poi:{restaurant:20,cafe:19,gym:1,grocery:1,bar:20,transit:20,stadium:2,library:4}},
+  "university of maryland":{name:"University of Maryland",lat:38.9869183,lng:-76.9425543,overall:65.6,scores:{walkability:55.2,food_amenities:78.0,campus_spirit:57.5,weather:96.7,safety:36.0},weather_raw:{temp_c:19.3,precip_mm:0.6,sun_hrs:10.9},poi:{restaurant:20,cafe:20,gym:7,grocery:2,bar:10,transit:20,stadium:8,library:5}},
+  "university of delaware":{name:"University of Delaware",lat:39.6809151,lng:-75.7523313,overall:61.1,scores:{walkability:54.0,food_amenities:86.5,campus_spirit:28.0,weather:96.7,safety:36.0},weather_raw:{temp_c:17.5,precip_mm:1.24,sun_hrs:10.2},poi:{restaurant:20,cafe:19,gym:5,grocery:4,bar:19,transit:20,stadium:0,library:2}},
+  "rutgers university":{name:"Rutgers University",lat:40.5026338,lng:-74.4503393,overall:73.6,scores:{walkability:70.5,food_amenities:85.0,campus_spirit:43.0,weather:87.4,safety:86.0},weather_raw:{temp_c:16.3,precip_mm:1.77,sun_hrs:7.9},poi:{restaurant:20,cafe:20,gym:6,grocery:5,bar:20,transit:20,stadium:0,library:9}},
+  "princeton university":{name:"Princeton University",lat:40.3430942,lng:-74.65507389999999,overall:64.7,scores:{walkability:52.5,food_amenities:81.2,campus_spirit:75.0,weather:88.4,safety:18.0},weather_raw:{temp_c:16.1,precip_mm:1.71,sun_hrs:8.3},poi:{restaurant:20,cafe:20,gym:6,grocery:1,bar:15,transit:20,stadium:9,library:15}},
+  "yale university":{name:"Yale University",lat:41.3163244,lng:-72.92234309999999,overall:70.0,scores:{walkability:69.0,food_amenities:94.0,campus_spirit:40.0,weather:71.4,safety:78.0},weather_raw:{temp_c:10.0,precip_mm:2.81,sun_hrs:6.6},poi:{restaurant:20,cafe:20,gym:20,grocery:4,bar:20,transit:20,stadium:0,library:20}},
+  "harvard university":{name:"Harvard University",lat:42.3744368,lng:-71.1182488,overall:84.2,scores:{walkability:83.3,food_amenities:100.0,campus_spirit:80.0,weather:66.3,safety:94.0},weather_raw:{temp_c:9.1,precip_mm:3.11,sun_hrs:5.6},poi:{restaurant:20,cafe:20,gym:20,grocery:9,bar:20,transit:20,stadium:8,library:20}},
+  "columbia university":{name:"Columbia University",lat:40.8075355,lng:-73.9625727,overall:84.5,scores:{walkability:100.0,food_amenities:92.0,campus_spirit:45.0,weather:85.6,safety:100.0},weather_raw:{temp_c:15.8,precip_mm:1.99,sun_hrs:7.7},poi:{restaurant:20,cafe:20,gym:20,grocery:20,bar:20,transit:20,stadium:0,library:20}},
+  "cornell university":{name:"Cornell University",lat:42.4534492,lng:-76.4735027,overall:51.6,scores:{walkability:44.0,food_amenities:68.8,campus_spirit:59.5,weather:68.8,safety:8.0},weather_raw:{temp_c:11.8,precip_mm:3.27,sun_hrs:5.1},poi:{restaurant:20,cafe:19,gym:7,grocery:0,bar:2,transit:20,stadium:4,library:19}},
+  "university of rochester":{name:"University of Rochester",lat:43.1305531,lng:-77.6260033,overall:51.9,scores:{walkability:58.5,food_amenities:63.0,campus_spirit:24.7,weather:40.2,safety:78.0},weather_raw:{temp_c:8.7,precip_mm:11.51,sun_hrs:2.7},poi:{restaurant:20,cafe:13,gym:2,grocery:1,bar:5,transit:20,stadium:1,library:4}},
+  "syracuse university":{name:"Syracuse University",lat:43.0494832,lng:-76.14739770000001,overall:66.8,scores:{walkability:71.8,food_amenities:94.5,campus_spirit:40.5,weather:44.6,safety:86.0},weather_raw:{temp_c:11.1,precip_mm:10.8,sun_hrs:2.4},poi:{restaurant:20,cafe:20,gym:17,grocery:3,bar:20,transit:20,stadium:0,library:9}},
+  "fordham university":{name:"Fordham University",lat:40.8614567,lng:-73.8852771,overall:90.6,scores:{walkability:100.0,food_amenities:95.0,campus_spirit:73.0,weather:85.0,safety:100.0},weather_raw:{temp_c:15.1,precip_mm:1.9,sun_hrs:7.8},poi:{restaurant:20,cafe:20,gym:10,grocery:20,bar:20,transit:20,stadium:3,library:9}},
+  "university of pittsburgh":{name:"University of Pittsburgh",lat:40.4444842,lng:-79.9612831,overall:75.5,scores:{walkability:65.2,food_amenities:88.5,campus_spirit:63.3,weather:85.6,safety:78.0},weather_raw:{temp_c:16.1,precip_mm:3.45,sun_hrs:8.5},poi:{restaurant:20,cafe:20,gym:9,grocery:1,bar:20,transit:20,stadium:2,library:20}},
+  "carnegie mellon university":{name:"Carnegie Mellon University",lat:40.4432027,lng:-79.9428499,overall:75.0,scores:{walkability:65.0,food_amenities:93.0,campus_spirit:51.7,weather:86.0,safety:84.0},weather_raw:{temp_c:16.4,precip_mm:3.45,sun_hrs:8.5},poi:{restaurant:20,cafe:20,gym:14,grocery:2,bar:20,transit:20,stadium:1,library:20}},
+  "temple university":{name:"Temple University",lat:39.9811911,lng:-75.1553563,overall:85.7,scores:{walkability:86.8,food_amenities:96.0,campus_spirit:56.7,weather:95.4,safety:96.0},weather_raw:{temp_c:17.2,precip_mm:0.44,sun_hrs:9.2},poi:{restaurant:20,cafe:20,gym:20,grocery:11,bar:20,transit:20,stadium:1,library:10}},
+  "drexel university":{name:"Drexel University",lat:39.9566127,lng:-75.18994409999999,overall:90.6,scores:{walkability:88.8,food_amenities:92.0,campus_spirit:80.0,weather:95.1,safety:100.0},weather_raw:{temp_c:17.2,precip_mm:0.63,sun_hrs:9.2},poi:{restaurant:20,cafe:20,gym:20,grocery:11,bar:20,transit:20,stadium:7,library:20}},
+  "penn":{name:"Penn",lat:39.9515013,lng:-75.1910161,overall:90.1,scores:{walkability:87.5,food_amenities:94.0,campus_spirit:77.5,weather:94.5,safety:100.0},weather_raw:{temp_c:17.2,precip_mm:0.63,sun_hrs:9.0},poi:{restaurant:20,cafe:20,gym:20,grocery:10,bar:20,transit:20,stadium:6,library:20}},
+  "villanova university":{name:"Villanova University",lat:40.0368926,lng:-75.3425785,overall:49.1,scores:{walkability:43.5,food_amenities:43.8,campus_spirit:33.3,weather:92.8,safety:28.0},weather_raw:{temp_c:16.3,precip_mm:0.74,sun_hrs:9.0},poi:{restaurant:17,cafe:3,gym:9,grocery:0,bar:2,transit:20,stadium:2,library:4}},
+  "case western reserve university":{name:"Case Western Reserve University",lat:41.5043413,lng:-81.6083838,overall:75.1,scores:{walkability:59.5,food_amenities:86.8,campus_spirit:76.5,weather:71.6,safety:88.0},weather_raw:{temp_c:13.2,precip_mm:3.61,sun_hrs:5.5},poi:{restaurant:20,cafe:20,gym:15,grocery:2,bar:19,transit:20,stadium:3,library:18}},
+  "university of cincinnati":{name:"University of Cincinnati",lat:39.1329219,lng:-84.51495039999999,overall:82.2,scores:{walkability:72.5,food_amenities:83.5,campus_spirit:68.3,weather:93.8,safety:100.0},weather_raw:{temp_c:17.7,precip_mm:1.8,sun_hrs:9.3},poi:{restaurant:20,cafe:20,gym:7,grocery:4,bar:20,transit:20,stadium:2,library:19}},
+  "miami university":{name:"Miami University",lat:39.5087485,lng:-84.73449149999999,overall:63.0,scores:{walkability:46.8,food_amenities:76.0,campus_spirit:63.0,weather:86.2,safety:42.0},weather_raw:{temp_c:16.5,precip_mm:3.75,sun_hrs:8.7},poi:{restaurant:20,cafe:14,gym:7,grocery:0,bar:20,transit:20,stadium:3,library:4}},
+  "bowling green state university":{name:"Bowling Green State University",lat:41.37969270000001,lng:-83.63005919999999,overall:40.5,scores:{walkability:9.2,food_amenities:57.5,campus_spirit:58.5,weather:73.7,safety:2.0},weather_raw:{temp_c:13.8,precip_mm:2.58,sun_hrs:5.2},poi:{restaurant:20,cafe:9,gym:1,grocery:0,bar:5,transit:3,stadium:3,library:8}},
+  "marquette university":{name:"Marquette University",lat:43.0386955,lng:-87.93101399999999,overall:64.4,scores:{walkability:62.0,food_amenities:86.5,campus_spirit:39.0,weather:63.3,safety:74.0},weather_raw:{temp_c:6.9,precip_mm:5.44,sun_hrs:7.3},poi:{restaurant:20,cafe:20,gym:9,grocery:3,bar:20,transit:20,stadium:0,library:7}},
+  "university of wisconsin-milwaukee":{name:"University of Wisconsin-Milwaukee",lat:43.078263,lng:-87.8819686,overall:57.2,scores:{walkability:59.0,food_amenities:83.0,campus_spirit:37.5,weather:63.1,safety:38.0},weather_raw:{temp_c:6.6,precip_mm:5.44,sun_hrs:7.4},poi:{restaurant:20,cafe:20,gym:12,grocery:3,bar:16,transit:20,stadium:0,library:7}},
+};
+
+/* ─── State ─── */
+let current = null, baseScore = 0, radarChart = null;
+
+/* ─── Util ─── */
+const $ = id => document.getElementById(id);
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');}
+function toast(msg,ms=3200){const t=$('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),ms);}
+
+/* ─── Autocomplete ─── */
+const sinput=$('sinput'), acdrop=$('acdrop');
+let aclist=[], acidx=-1;
+
+sinput.addEventListener('input',()=>{
+  const q=sinput.value.trim().toLowerCase();
+  if(q.length<2){acdrop.classList.remove('open');return;}
+  const hits=dbSearch(q,7);
+  aclist=hits.map(h=>h.k);
+  acidx=-1;
+  if(!hits.length){acdrop.classList.remove('open');return;}
+  acdrop.innerHTML=hits.map((h,i)=>`<div class="ac-row" data-k="${h.k}" onclick="pickAC('${h.k}')"><span class="ac-score">${h.d.overall}</span><span class="ac-nm">${h.d.name}</span></div>`).join('');
+  acdrop.classList.add('open');
+});
+sinput.addEventListener('keydown',e=>{
+  const rows=acdrop.querySelectorAll('.ac-row');
+  if(e.key==='ArrowDown'){acidx=Math.min(acidx+1,rows.length-1);hiAC(rows);e.preventDefault();}
+  else if(e.key==='ArrowUp'){acidx=Math.max(acidx-1,-1);hiAC(rows);e.preventDefault();}
+  else if(e.key==='Enter'){
+    if(acidx>=0&&aclist[acidx])pickAC(aclist[acidx]);
+    else handleSearch();
+  }
+  else if(e.key==='Escape')acdrop.classList.remove('open');
+});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))acdrop.classList.remove('open');});
+function hiAC(rows){rows.forEach((r,i)=>r.classList.toggle('sel',i===acidx));}
+function pickAC(k){sinput.value=ML_DB[k].name;acdrop.classList.remove('open');run(k);}
+
+function dbSearch(q,n=7){
+  const res=[];
+  for(const[k,d] of Object.entries(ML_DB)){
+    const name=d.name.toLowerCase(); let sc=0;
+    if(name===q)sc=1000;
+    else if(name.startsWith(q))sc=800;
+    else if(name.includes(q))sc=600;
+    else if(k.includes(q))sc=500;
+    else{
+      const wds=q.split(' ').filter(w=>w.length>2);
+      const nwds=name.split(/[\s\-]+/);
+      const m=wds.filter(w=>nwds.some(nw=>nw.startsWith(w)));
+      if(m.length)sc=m.length*200;
+    }
+    if(sc>0)res.push({k,d,sc});
+  }
+  return res.sort((a,b)=>b.sc-a.sc||b.d.overall-a.d.overall).slice(0,n);
+}
+
+function handleSearch(){
+  const q=sinput.value.trim().toLowerCase();
+  if(!q)return;
+  const hits=dbSearch(q,1);
+  if(hits.length)run(hits[0].k);
+  else toast('Not found — try Purdue, MIT, NYU, Stanford…');
+}
+function go(k){sinput.value=ML_DB[k]?ML_DB[k].name:k;run(k);}
+function goBack(){showView('v-search');sinput.value='';}
+
+/* ─── Main run ─── */
+async function run(k){
+  const local=ML_DB[k];
+  if(!local){toast('Campus not in dataset.');return;}
+  $('lname').textContent=local.name;
+  showView('v-loading');
+  await animate_loader();
+
+  /* Try Flask backend first — falls back to local if unavailable */
+  let data=null, source='local';
+  try{
+    const initW=getWeights();
+    const wParams=new URLSearchParams({campus:local.name,walkability:initW.walkability,food_amenities:initW.food_amenities,campus_spirit:initW.campus_spirit,weather:initW.weather,safety:initW.safety});
+    const resp=await fetch(`/api/score?${wParams}`,{signal:AbortSignal.timeout(4000)});
+    if(resp.ok){
+      const json=await resp.json();
+      if(!json.error){data=json;source=json.source||'live';}
+    }
+  }catch(e){ /* backend not running — use local */ }
+
+  if(data){
+    /* Backend returned — map to our shape */
+    current={
+      name: data.campus||local.name, lat: data.lat, lng: data.lng,
+      overall: data.overall_score||data.formula_score||local.overall,
+      formula: data.formula_score, nn: data.nn_score,
+      scores:{
+        walkability:   data.sub_scores?.walkability||local.scores.walkability,
+        food_amenities:data.sub_scores?.food_amenities||local.scores.food_amenities,
+        campus_spirit: data.sub_scores?.campus_spirit||local.scores.campus_spirit,
+        weather:       data.sub_scores?.weather||local.scores.weather,
+        safety:        data.sub_scores?.safety||local.scores.safety,
+      },
+      weather_raw: local.weather_raw,
+      poi: local.poi,
+      source
+    };
+  } else {
+    current={...local, formula:local.overall, nn:null, source:'local'};
+  }
+
+  render();
+  showView('v-results');
+}
+
+async function animate_loader(){
+  for(let i=0;i<6;i++){
+    $(`l${i}`).classList.add('go');
+    await delay(300+Math.random()*200);
+    $(`l${i}`).classList.remove('go');
+    $(`l${i}`).classList.add('done');
+  }
+  await delay(150);
+  for(let i=0;i<6;i++){$(`l${i}`).classList.remove('go','done');}
+}
+
+/* ─── Render ─── */
+function render(){
+  const c=current, s=c.scores;
+  baseScore=Math.round(c.overall);
+
+  /* nav / topbar */
+  $('r-nav-tag').textContent=c.name;
+  $('rname').textContent=c.name;
+  $('rmeta').innerHTML=`<span>📍 ${c.lat.toFixed(4)}, ${c.lng.toFixed(4)}</span>`;
+
+  /* source badge */
+  const sb=$('src-badge-wrap');
+  const srcCls=c.source==='live'?'live':c.source==='dataset'?'cached':'local';
+  const srcLbl=c.source==='live'?'Live API':c.source==='dataset'?'Dataset':'Local model';
+  sb.innerHTML=`<span class="src-badge ${srcCls}">${srcLbl}</span>`;
+
+  /* map */
+  // Leaflet map
+  if(window._leafMap){window._leafMap.remove();window._leafMap=null;}
+  const lmap=L.map('leaflet-map',{zoomControl:true,scrollWheelZoom:false}).setView([c.lat,c.lng],15);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+    attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+    maxZoom:19,
+    subdomains:'abcd'
+  }).addTo(lmap);
+  const icon=L.divIcon({className:'',html:`<div style="width:14px;height:14px;background:#2B5F3F;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.4)"></div>`,iconAnchor:[7,7]});
+  L.marker([c.lat,c.lng],{icon}).addTo(lmap).bindPopup(`<b>${c.name}</b>`).openPopup();
+  window._leafMap=lmap;
+  setTimeout(()=>lmap.invalidateSize(),200);
+
+  /* gauge */
+  animRing(baseScore);
+
+  /* tier */
+  const tier=baseScore>=85?'Excellent livability':baseScore>=70?'Good livability':baseScore>=55?'Moderate livability':'Below average';
+  $('stier').textContent=tier;
+
+  /* bars */
+  setTimeout(()=>{
+    setBar('w', s.walkability);
+    setBar('f', s.food_amenities);
+    setBar('s', s.campus_spirit);
+    setBar('wt',s.weather);
+    setBar('sf',s.safety);
+  },200);
+
+  /* POI grid */
+  const poi=c.poi;
+  const poiItems=[
+    ['🍽',poi.restaurant,'Restaurants'],['☕',poi.cafe,'Cafés'],
+    ['🏋',poi.gym,'Gyms'],['🛒',poi.grocery,'Groceries'],
+    ['🍺',poi.bar,'Bars'],['🚌',poi.transit,'Transit stops'],
+    ['🏟',poi.stadium,'Stadiums'],['📚',poi.library,'Libraries'],
+  ];
+  $('poi-grid').innerHTML=poiItems.map(([ic,n,l])=>`<div class="poi-cell"><div class="poi-n">${n}</div><div class="poi-l">${ic} ${l}</div></div>`).join('');
+
+  /* weather */
+  const w=c.weather_raw;
+  $('wx-temp').textContent=w.temp_c.toFixed(1);
+  $('wx-rain').textContent=w.precip_mm.toFixed(2);
+  $('wx-sun').textContent=w.sun_hrs.toFixed(1);
+
+  /* radar */
+  drawRadar(s);
+
+  /* scores */
+  $('cdefault').textContent=baseScore;
+  ['pw','pf','ps','pwt','psf'].forEach(id=>$(id).value=50);
+  recalc();
+
+  /* AI */
+  buildAI();
+  /* Initial rank with default weights */
+  fetchRank(getWeights());
+}
+
+/* ─── Ring animation ─── */
+function animRing(target){
+  const ring=$('ring'), num=$('snum'), circ=326.7;
+  ring.style.transition='none'; ring.style.strokeDashoffset=circ; num.textContent='0';
+  const col=target>=80?'#2B5F3F':target>=65?'#4E8C69':target>=50?'#C49A2A':'#C05A2A';
+  ring.style.stroke=col;
+  requestAnimationFrame(()=>setTimeout(()=>{
+    ring.style.transition='stroke-dashoffset 1.4s cubic-bezier(0.22,1,0.36,1)';
+    ring.style.strokeDashoffset=circ-(target/100)*circ;
+  },30));
+  const t0=performance.now();
+  (function tick(now){
+    const p=Math.min((now-t0)/1400,1), e=1-Math.pow(1-p,3);
+    num.textContent=Math.round(e*target);
+    if(p<1)requestAnimationFrame(tick);
+  })(t0);
+}
+
+function setBar(id,val){
+  $(`bn-${id}`).textContent=val.toFixed(1);
+  $(`bf-${id}`).style.width=val+'%';
+}
+
+/* ─── Radar ─── */
+function drawRadar(s){
+  const ctx=$('radar').getContext('2d');
+  if(radarChart)radarChart.destroy();
+  radarChart=new Chart(ctx,{
+    type:'radar',
+    data:{
+      labels:['Walkability','Food','Spirit','Weather','Safety'],
+      datasets:[{
+        data:[s.walkability,s.food_amenities,s.campus_spirit,s.weather,s.safety],
+        backgroundColor:'rgba(43,95,63,0.08)',
+        borderColor:'#2B5F3F',
+        pointBackgroundColor:'#2B5F3F',
+        pointRadius:4, borderWidth:1.5
+      }]
+    },
+    options:{
+      animation:{duration:900},
+      scales:{r:{min:0,max:100,
+        ticks:{stepSize:25,color:'#8C7E6E',font:{size:10,family:'JetBrains Mono'},backdropColor:'transparent'},
+        grid:{color:'#DDD5C8'},
+        pointLabels:{color:'#4A4035',font:{size:11,family:'Inter',weight:'500'}},
+        angleLines:{color:'#DDD5C8'}
+      }},
+      plugins:{legend:{display:false}}
+    }
+  });
+}
+
+/* ─── Default weights matching updated model.py DIM_WEIGHTS ─── */
+const DEFAULT_W = {walkability:0.30, food_amenities:0.20, campus_spirit:0.15, weather:0.20, safety:0.15};
+
+/* ─── Build normalised weight dict from slider values (mirrors parse_weights in app.py) ─── */
+function getWeights(){
+  const raw={
+    walkability:   +$('pw').value,
+    food_amenities:+$('pf').value,
+    campus_spirit: +$('ps').value,
+    weather:       +$('pwt').value,
+    safety:        +$('psf').value,
+  };
+  const total=Object.values(raw).reduce((a,b)=>a+b,0)||1;
+  const norm={};
+  for(const k in raw) norm[k]=raw[k]/total;
+  return norm;
+}
+
+/* ─── Local instant score (matches backend formula, no NN blend) ─── */
+function localPersonalScore(s, weights){
+  return Math.round(
+    weights.walkability   * s.walkability +
+    weights.food_amenities* s.food_amenities +
+    weights.campus_spirit * s.campus_spirit +
+    weights.weather       * s.weather +
+    weights.safety        * s.safety
+  );
+}
+
+/* ─── Debounce helper ─── */
+let _rankTimer=null;
+function debounce(fn,ms){clearTimeout(_rankTimer);_rankTimer=setTimeout(fn,ms);}
+
+/* ─── Recalc: instant local + debounced backend rank ─── */
+function recalc(){
+  if(!current)return;
+  const s=current.scores;
+  const weights=getWeights();
+
+  /* Instant local feedback */
+  const ps=localPersonalScore(s,weights);
+  $('pers-tag').textContent=`Your score: ${ps}`;
+  $('cpersonal').textContent=ps;
+  const diff=ps-baseScore;
+  const d=$('cdiff');
+  if(diff>0){d.textContent=`↑ +${diff} for you`;d.className='cmp-diff diff-up';}
+  else if(diff<0){d.textContent=`↓ ${diff} for you`;d.className='cmp-diff diff-dn';}
+  else{d.textContent='Same as overall';d.className='cmp-diff diff-eq';}
+
+  /* Debounced backend rank call — fires 600ms after slider stops */
+  debounce(()=>fetchRank(weights), 600);
+}
+
+/* ─── /api/rank — top campuses for your preferences ─── */
+async function fetchRank(weights){
+  /* Always show local ranking (instant, no backend needed) */
+  const localRanked = Object.entries(ML_DB)
+    .map(([k,d])=>({k, name:d.name, score:localPersonalScore(d.scores, weights)}))
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,6);
+  renderRank(localRanked, 'your preferences');
+
+  /* Upgrade with backend blended scores if available */
+  try{
+    const params=new URLSearchParams({
+      walkability:   weights.walkability,
+      food_amenities:weights.food_amenities,
+      campus_spirit: weights.campus_spirit,
+      weather:       weights.weather,
+      safety:        weights.safety,
+      limit:6
+    });
+    const resp=await fetch(`/api/rank?${params}`,{signal:AbortSignal.timeout(4000)});
+    if(resp.ok){
+      const json=await resp.json();
+      if(json.campuses?.length){
+        const rows=json.campuses.map(c=>({k:c.campus.toLowerCase(),name:c.campus,score:Math.round(c.overall_score)}));
+        renderRank(rows,'your preferences · ML blended');
+      }
+    }
+  }catch(e){}
+}
+
+function renderRank(rows, subtitle){
+  $('rank-sub').textContent=subtitle;
+  $('rank-list').innerHTML=rows.map((r,i)=>`
+    <div class="rank-row">
+      <span class="rank-pos">${i+1}</span>
+      <div style="flex:1">
+        <div class="rank-name" onclick="go('${r.k}')">${r.name}</div>
+        <div class="rank-bar"><div class="rank-fill" style="width:${r.score}%"></div></div>
+      </div>
+      <span class="rank-score">${r.score}</span>
+    </div>`).join('');
+  $('rank-card').style.display='block';
+}
+
+/* ─── AI text ─── */
+function buildAI(){
+  const c=current, s=c.scores, score=baseScore;
+  const str=[], weak=[];
+  if(s.walkability>=70)str.push('excellent walkability');
+  if(s.food_amenities>=85)str.push('abundant food & nightlife options');
+  if(s.weather>=90)str.push('near-perfect weather');
+  if(s.campus_spirit>=75)str.push('strong campus spirit');
+  if(s.safety>=80)str.push('high safety scores');
+  if(s.walkability<50)weak.push('limited walkability');
+  if(s.food_amenities<60)weak.push('fewer food options nearby');
+  if(s.weather<50)weak.push('challenging weather');
+  if(s.campus_spirit<45)weak.push('lower campus spirit');
+  if(s.safety<30)weak.push('lower safety indicators');
+
+  const tier=score>=85?'excellent':score>=70?'solid':score>=55?'moderate':'below average';
+  let html=`<strong>${c.name}</strong> earns a <strong>${score}/100</strong> overall livability score — ${tier} across all dimensions. `;
+
+  if(c.formula&&c.nn)html+=`Formula score: <strong>${c.formula.toFixed(1)}</strong> · Neural net: <strong>${c.nn.toFixed(1)}</strong> · Blended: <strong>${score}</strong>. `;
+  if(str.length)html+=`Standout strengths: ${str.slice(0,3).join(', ')}. `;
+  if(weak.length)html+=`Watch for: ${weak.slice(0,2).join(', ')}. `;
+  html+=`<strong>Adjust the sliders</strong> above to weight the dimensions that matter most to you.`;
+  $('aitxt').innerHTML=html;
+}
+</script>
+</body>
+</html>
