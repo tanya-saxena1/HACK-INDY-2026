@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Campus Livability Score</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0b1120;
+      --surface: #162032;
+      --border:  #243044;
+      --accent:  #38bdf8;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --good:    #34d399;
+      --mid:     #fbbf24;
+      --bad:     #f87171;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    header { text-align: center; padding: 3rem 1rem 1.5rem; }
+    header h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; }
+    header h1 span { color: var(--accent); }
+    header p { color: var(--muted); margin-top: .5rem; font-size: .95rem; }
+
+    .search-wrap { display: flex; justify-content: center; padding: 1rem 1rem 2rem; }
+    .search-box { position: relative; width: 100%; max-width: 520px; }
+    .search-box input {
+      width: 100%; padding: .85rem 1.2rem; padding-right: 120px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; color: var(--text); font-size: 1rem; outline: none;
+      transition: border-color .2s;
+    }
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box button {
+      position: absolute; right: 6px; top: 6px; bottom: 6px;
+      padding: 0 1.2rem; background: var(--accent); color: #0b1120;
+      border: none; border-radius: 8px; font-weight: 700; cursor: pointer;
+      transition: background .15s;
+    }
+    .search-box button:hover { background: #7dd3fc; }
+
+    #autocomplete {
+      position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; z-index: 100; max-height: 220px; overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    }
+    .ac-item { padding: .65rem 1.2rem; cursor: pointer; font-size: .9rem; }
+    .ac-item:hover, .ac-item.active { background: var(--border); color: var(--accent); }
+
+    #status { text-align: center; min-height: 2rem; color: var(--muted); font-size: .9rem; margin-bottom: .5rem; }
+    #status.error { color: var(--bad); }
+
+    #results { display: none; max-width: 1100px; margin: 0 auto; padding: 0 1.2rem 4rem; }
+    .source-badge {
+      display: inline-block; margin-bottom: 1rem;
+      padding: .3rem .8rem; border-radius: 20px; font-size: .75rem; font-weight: 600;
+      background: var(--border); color: var(--muted);
+    }
+    .source-badge.live { background: #1a3a2a; color: var(--good); }
+
+    .grid { display: grid; gap: 1.2rem; grid-template-columns: 1fr 1fr; }
+    @media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; }
+    .card h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 1rem; }
+
+    .score-hero { text-align: center; padding: .5rem 0; }
+    .score-number { font-size: 5.5rem; font-weight: 900; line-height: 1; }
+    .score-label { color: var(--muted); font-size: .85rem; margin-top: .3rem; }
+    .score-tag { display: inline-block; margin-top: .8rem; padding: .35rem 1rem; border-radius: 20px; font-weight: 700; font-size: .9rem; }
+
+    .dim { margin: .75rem 0; }
+    .dim-header { display: flex; justify-content: space-between; margin-bottom: .3rem; font-size: .85rem; }
+    .dim-name { color: var(--text); }
+    .dim-val  { font-weight: 700; }
+    .bar-track { background: var(--border); border-radius: 6px; height: 8px; }
+    .bar-fill  { height: 8px; border-radius: 6px; transition: width .8s cubic-bezier(.4,0,.2,1); }
+
+    #map { width: 100%; height: 360px; border-radius: 10px; background: var(--border); }
+    .radar-wrap { position: relative; height: 280px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🎓 Campus <span>Livability</span> Score</h1>
+  <p>Enter any US college campus — we score walkability, food, spirit, weather &amp; safety</p>
+</header>
+
+<div class="search-wrap">
+  <div class="search-box" id="searchBox">
+    <input id="campusInput" type="text" placeholder="e.g. University of Michigan"
+           autocomplete="off" spellcheck="false"/>
+    <button id="searchBtn" onclick="doSearch()">Analyze</button>
+    <div id="autocomplete"></div>
+  </div>
+</div>
+
+<div id="status"></div>
+
+<div id="results">
+  <span id="sourceBadge" class="source-badge"></span>
+  <div class="grid">
+
+    <div class="card" style="display:flex;flex-direction:column;justify-content:center;">
+      <h3>Overall Score</h3>
+      <div class="score-hero">
+        <div id="scoreNumber" class="score-number">—</div>
+        <div id="campusLabel" class="score-label">out of 100</div>
+        <div id="scoreTag" class="score-tag"></div>
+      </div>
+      <div class="radar-wrap" style="margin-top:1.2rem;">
+        <canvas id="radarCanvas"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Dimension Breakdown</h3>
+      <div id="dimBars"></div>
+    </div>
+
+    <div class="card" style="grid-column:1/-1;">
+      <h3>Campus Map</h3>
+      <div id="map"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const GMAPS_KEY = "{{ maps_key }}";
+  const s = document.createElement("script");
+  s.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_KEY}&callback=gmapsReady`;
+  s.async = true; s.defer = true;
+  document.head.appendChild(s);
+</script>
+
+<script>
+  let gmap = null, radarChart = null, allCampuses = [], acIndex = -1;
+
+  async function loadCampuses() {
+    try {
+      const r = await fetch("/api/campuses");
+      allCampuses = await r.json();
+    } catch(e) {}
+  }
+  loadCampuses();
+
+  function scoreColor(n) {
+    if (n >= 70) return "#34d399";
+    if (n >= 45) return "#fbbf24";
+    return "#f87171";
+  }
+  function scoreTag(n) {
+    if (n >= 80) return ["🌟 Excellent", "#1a3a2a", "#34d399"];
+    if (n >= 65) return ["👍 Great",     "#1a2a3a", "#38bdf8"];
+    if (n >= 50) return ["😐 Average",   "#2a2a1a", "#fbbf24"];
+    return               ["⚠️ Below Avg", "#2a1a1a", "#f87171"];
+  }
+
+  const DIM_LABELS = {
+    walkability:    "🚶 Walkability / Transit",
+    food_amenities: "🍕 Food & Amenities",
+    campus_spirit:  "🏟️ Campus Spirit",
+    weather:        "☀️ Weather",
+    safety:         "🏥 Safety",
+  };
+
+  const input = document.getElementById("campusInput");
+  const acBox  = document.getElementById("autocomplete");
+
+  input.addEventListener("input", () => {
+    const q = input.value.toLowerCase().trim();
+    if (!q) { acBox.innerHTML = ""; return; }
+    const hits = allCampuses.filter(c => c.toLowerCase().includes(q)).slice(0, 8);
+    acIndex = -1;
+    acBox.innerHTML = hits.map((c, i) =>
+      `<div class="ac-item" data-idx="${i}" onclick="selectAC('${c.replace(/'/g,"\\'")}')"> ${c}</div>`
+    ).join("");
+  });
+
+  input.addEventListener("keydown", e => {
+    const items = acBox.querySelectorAll(".ac-item");
+    if (e.key === "ArrowDown")  { acIndex = Math.min(acIndex+1, items.length-1); highlight(items); }
+    else if (e.key === "ArrowUp")   { acIndex = Math.max(acIndex-1, 0); highlight(items); }
+    else if (e.key === "Enter") {
+      if (acIndex >= 0 && items[acIndex]) selectAC(items[acIndex].textContent.trim());
+      else doSearch();
+    }
+    else if (e.key === "Escape") { acBox.innerHTML = ""; }
+  });
+
+  function highlight(items) {
+    items.forEach((el, i) => el.classList.toggle("active", i === acIndex));
+    if (items[acIndex]) items[acIndex].scrollIntoView({ block: "nearest" });
+  }
+  function selectAC(name) {
+    input.value = name;
+    acBox.innerHTML = "";
+    doSearch();
+  }
+  document.addEventListener("click", e => {
+    if (!document.getElementById("searchBox").contains(e.target)) acBox.innerHTML = "";
+  });
+
+  async function doSearch() {
+    const name = input.value.trim();
+    if (!name) return;
+    acBox.innerHTML = "";
+    setStatus("⏳ Analyzing campus…", false);
+    document.getElementById("results").style.display = "none";
+    document.getElementById("searchBtn").disabled = true;
+
+    try {
+      const r    = await fetch(`/api/score?campus=${encodeURIComponent(name)}`);
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      render(data);
+      setStatus("");
+    } catch(err) {
+      setStatus("⚠ " + err.message, true);
+    } finally {
+      document.getElementById("searchBtn").disabled = false;
+    }
+  }
+
+  function setStatus(msg, isErr=false) {
+    const el = document.getElementById("status");
+    el.textContent = msg;
+    el.className = isErr ? "error" : "";
+  }
+
+  function render(data) {
+    const score = data.overall_score;
+    const col   = scoreColor(score);
+    const [tagText, tagBg, tagFg] = scoreTag(score);
+
+    const numEl = document.getElementById("scoreNumber");
+    numEl.textContent = score;
+    numEl.style.color = col;
+    document.getElementById("campusLabel").textContent = data.campus;
+    const tagEl = document.getElementById("scoreTag");
+    tagEl.textContent = tagText;
+    tagEl.style.background = tagBg;
+    tagEl.style.color = tagFg;
+
+    const badge   = document.getElementById("sourceBadge");
+    const isLive  = data.source === "live" || data.source === "live_cache";
+    badge.textContent = isLive ? "⚡ Live query" : "📦 Pre-scored dataset";
+    badge.className   = "source-badge" + (isLive ? " live" : "");
+
+    const sub = data.sub_scores;
+    document.getElementById("dimBars").innerHTML = Object.entries(DIM_LABELS).map(([k, label]) => {
+      const v = sub[k] ?? 0;
+      const c = scoreColor(v);
+      return `
+        <div class="dim">
+          <div class="dim-header">
+            <span class="dim-name">${label}</span>
+            <span class="dim-val" style="color:${c}">${v}</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:${v}%;background:${c}"></div>
+          </div>
+        </div>`;
+    }).join("");
+
+    const labels = Object.values(DIM_LABELS).map(l => l.replace(/^\S+\s/, ""));
+    const values = Object.keys(DIM_LABELS).map(k => sub[k] ?? 0);
+    const ctx    = document.getElementById("radarCanvas").getContext("2d");
+    if (radarChart) radarChart.destroy();
+    radarChart = new Chart(ctx, {
+      type: "radar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Score", data: values,
+          backgroundColor: "rgba(56,189,248,0.15)",
+          borderColor: "#38bdf8",
+          pointBackgroundColor: "#38bdf8",
+          pointRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          r: {
+            min: 0, max: 100,
+            ticks: { stepSize: 25, color: "#64748b", backdropColor: "transparent" },
+            grid:        { color: "#243044" },
+            angleLines:  { color: "#243044" },
+            pointLabels: { color: "#94a3b8", font: { size: 11 } },
+          }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    const center = { lat: data.lat, lng: data.lng };
+    if (!gmap) {
+      gmap = new google.maps.Map(document.getElementById("map"), {
+        zoom: 15, center,
+        styles: darkMapStyles(),
+      });
+    } else {
+      gmap.setCenter(center);
+      gmap.setZoom(15);
+    }
+    new google.maps.Marker({
+      position: center, map: gmap, title: data.campus,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: "#38bdf8", fillOpacity: 1,
+        strokeColor: "#0b1120", strokeWeight: 2,
+      }
+    });
+
+    document.getElementById("results").style.display = "block";
+    document.getElementById("results").scrollIntoView({ behavior: "smooth" });
+  }
+
+  function gmapsReady() {}
+
+  function darkMapStyles() {
+    return [
+      { elementType: "geometry",           stylers: [{ color: "#162032" }] },
+      { elementType: "labels.text.fill",   stylers: [{ color: "#64748b" }] },
+      { elementType: "labels.text.stroke", stylers: [{ color: "#0b1120" }] },
+      { featureType: "road",         elementType: "geometry",        stylers: [{ color: "#243044" }] },
+      { featureType: "road",         elementType: "geometry.stroke", stylers: [{ color: "#0b1120" }] },
+      { featureType: "road.highway", elementType: "geometry",        stylers: [{ color: "#2a4a6a" }] },
+      { featureType: "water",        elementType: "geometry",        stylers: [{ color: "#0b1a2a" }] },
+      { featureType: "poi.park",     elementType: "geometry",        stylers: [{ color: "#1a2a1a" }] },
+      { featureType: "transit",      elementType: "geometry",        stylers: [{ color: "#1e3a5a" }] },
+    ];
+  }
+</script>
+</body>
+</html>
+```
+
+---
+
+## `requirements.txt`
+```
+flask
+flask-cors
+googlemaps
+pandas
+numpy
+torch
+scikit-learn
+joblib
+requests
+```
+
+---
+
+## Project structure and run order
+```
+campus-livability/
+├── templates/
+│   └── index.html
+├── data_collection.py    ← run 1st
+├── model.py              ← run 2nd
+├── app.py                ← run 3rd
+├── campus_features.csv   ← auto-generated
+├── model_weights.pth     ← auto-generated
+├── scaler.pkl            ← auto-generated
+└── requirements.txt
