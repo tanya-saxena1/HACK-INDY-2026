@@ -4,7 +4,7 @@ import pandas as pd
 
 from model import POI_TYPES
  
-GMAPS_KEY = "AIzaSyANlC4pnuKyEiyRpI5oeXu1GnbmqX7R4d0"
+GMAPS_KEY = ""
 gmaps     = googlemaps.Client(GMAPS_KEY)
 RADIUS    = 1600
  
